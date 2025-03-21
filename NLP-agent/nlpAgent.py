@@ -23,7 +23,7 @@ model = ChatNVIDIA(model="meta/llama-3.3-70b-instruct")
 db = SQLDatabase.from_uri("postgresql://anc2:admin@localhost:5432/finycsdb")
 query_prompt_template = hub.pull("langchain-ai/sql-query-system-prompt")
 
-# print("FINYCS DB==>", db.get_table_info())
+print("FINYCS DB==>", query_prompt_template)
 
 # state definition
 class State(TypedDict):
@@ -35,6 +35,7 @@ class State(TypedDict):
     relevance: str
     sql_error: bool
     readable_resp: str
+    current_user: str
 
 def get_database_schema(db):
     """
@@ -97,6 +98,7 @@ def get_current_user(state:State, config: RunnableConfig):
     try:
         query = f"SELECT name FROM numbers_app_user WHERE id = {user_id}"
         result = db.run(query)
+        print("USER BEFORE SAVING",result)
         
         if result and result.strip():
             state["current_user"] = result.strip()
@@ -152,21 +154,57 @@ class QueryOutput(BaseModel):
     """Generated SQL query."""
     query: str = Field(..., description="Syntactically valid SQL query.")
 
+# def generate_sql_query(state: State):
+#     """Generate SQL query to fetch information."""
+#     print(f"Converting question to SQL: {state['user_query']}")
+#     detailed_schema = get_database_schema(db)
+
+#     prompt = query_prompt_template.invoke(
+#         {
+#             "dialect": db.dialect,
+#             "top_k": 10,
+#             "table_info": detailed_schema,
+#             "input": state['user_query'],
+#         }
+#     )
+#     structured_llm = model.with_structured_output(QueryOutput)
+#     result = structured_llm.invoke(prompt)
+#     state["sql_query"] = result.query
+#     print(f"Generated SQL query: {state['sql_query']}")
+#     return state
+
 def generate_sql_query(state: State):
     """Generate SQL query to fetch information."""
-    print(f"Converting question to SQL: {state['user_query']}")
+    print(f"Converting question to SQL for user '{state['current_user']}': {state['user_query']}")
     detailed_schema = get_database_schema(db)
+    
+    # Modify the prompt to include the current user context
+    messages = [
+        HumanMessage(content=f"""
+        Given an input question, create a syntactically correct {db.dialect} query to run to help find the answer.
 
-    prompt = query_prompt_template.invoke(
-        {
-            "dialect": db.dialect,
-            "top_k": 10,
-            "table_info": detailed_schema,
-            "input": state['user_query'],
-        }
-    )
+        IMPORTANT: The current user is '{state['current_user']}'. Always scope your query to this user where applicable by adding appropriate WHERE clauses that filter for the current user's data.
+        
+        Unless the user specifies in their question a specific number of examples they wish to obtain, always limit your query to at most {10} results. You can order the results by a relevant column to return the most interesting examples in the database.
+        
+        Never query for all the columns from a specific table, only ask for the few relevant columns given the question.
+        
+        Pay attention to use only the column names that you can see in the schema description. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table.
+        
+        When querying user-related data:
+        1. If there's a 'user_id' column in a table, add a condition like "WHERE user_id = (SELECT id FROM users WHERE name = '{state['current_user']}')"
+        2. If there's a direct reference to a 'users' table, add "WHERE users.name = '{state['current_user']}'"
+        3. If joining with a users table, ensure the join condition includes filtering for the current user
+        
+        Only use the following tables:
+        {detailed_schema}
+        
+        Question: {state['user_query']}
+        """)
+    ]
+    
     structured_llm = model.with_structured_output(QueryOutput)
-    result = structured_llm.invoke(prompt)
+    result = structured_llm.invoke(messages)
     state["sql_query"] = result.query
     print(f"Generated SQL query: {state['sql_query']}")
     return state
@@ -259,14 +297,16 @@ def generate_readable_resp(state: State):
     
     messages = [
         HumanMessage(content=f"""
+        You are a helpful assistant that converts SQL query results into clear, natural language responses.
+        Start the response with a friendly greeting that includes the user's name.
+        
+        Current user: {state["current_user"]}
         User query: {state["user_query"]}
-        
         SQL query used: {state["sql_query"]}
-        
         Query result: {state["sql_query_result"]}
         
         Please generate a clear, concise response that answers the user's original question based on the SQL query results.
-        Make it friendly and informative.
+        Start with "Hello {state["current_user"]}," and then provide the requested information in a friendly manner.
         """)
     ]
     
@@ -404,7 +444,9 @@ def run_query(user_query):
 # sample_query = "what was the total sales of the user named Ajay pal last month ?."
 # sample_query = "what was the total number of invoices of the user named Ajay pal last month ?."
 # sample_query = "what is the name of the user who has user id 28 ?."
-sample_query = "print the row storing the data of the user named Ajay Pal ?."
+# sample_query = "print the row storing the data of the user named Ajay Pal ?."
+# sample_query = "what were my orders last month?"
+sample_query = "who am i?"
 
 
 run_query(sample_query)
