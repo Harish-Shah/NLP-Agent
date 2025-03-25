@@ -1,3 +1,4 @@
+import json
 import os, getpass
 from langchain import hub
 from sqlalchemy import inspect
@@ -23,7 +24,7 @@ model = ChatNVIDIA(model="meta/llama-3.3-70b-instruct")
 db = SQLDatabase.from_uri("postgresql://anc2:admin@localhost:5432/finycsdb")
 query_prompt_template = hub.pull("langchain-ai/sql-query-system-prompt")
 
-print("FINYCS DB==>", query_prompt_template)
+# print("FINYCS DB==>", query_prompt_template)
 
 # state definition
 class State(TypedDict):
@@ -35,7 +36,9 @@ class State(TypedDict):
     relevance: str
     sql_error: bool
     readable_resp: str
+    output_format: str
     current_user: str
+    current_business: int
 
 def get_database_schema(db):
     """
@@ -80,6 +83,31 @@ def get_database_schema(db):
     print("Retrieved detailed database schema.")
     return schema
 
+# def get_database_schema(db):
+#     """Returns the database schema in JSON format."""
+#     inspector = inspect(db._engine)
+    
+#     schema = {}
+#     for table_name in inspector.get_table_names():
+#         columns = []
+#         for column in inspector.get_columns(table_name):
+#             col_info = {
+#                 "name": column["name"],
+#                 "type": str(column["type"]),
+#                 "primary_key": column["name"] in inspector.get_pk_constraint(table_name).get("constrained_columns", []),
+#                 "foreign_key": None,
+#             }
+#             fk_constraints = inspector.get_foreign_keys(table_name)
+#             for fk in fk_constraints:
+#                 if column["name"] in fk.get("constrained_columns", []):
+#                     col_info["foreign_key"] = f"{fk.get('referred_table')}.{fk.get('referred_columns')[0]}"
+            
+#             columns.append(col_info)
+        
+#         schema[table_name] = columns
+#     # print("NEW SCHEMA", schema)
+#     return json.dumps(schema, indent=4)
+
 # Node 1: Get Current User
 class GetCurrentUser(BaseModel):
     current_user: str = Field(
@@ -89,7 +117,7 @@ class GetCurrentUser(BaseModel):
 def get_current_user(state:State, config: RunnableConfig):
     print("Retrieving the current user based on user ID.")
     user_id = config["configurable"].get("current_user_id", None)
-    user_id = 28
+    user_id = 5
     if not user_id:
         state["current_user"] = "User not found"
         print("No user ID provided in the configuration.")
@@ -98,10 +126,10 @@ def get_current_user(state:State, config: RunnableConfig):
     try:
         query = f"SELECT name FROM numbers_app_user WHERE id = {user_id}"
         result = db.run(query)
-        print("USER BEFORE SAVING",result)
         
         if result and result.strip():
             state["current_user"] = result.strip()
+            state["current_business"] = 198
             print(f"Current user set to: {state['current_user']}")
         else:
             state["current_user"] = "User not found"
@@ -120,33 +148,81 @@ class RelevanceOutput(BaseModel):
     )
 
 def check_relevance(state: State):
-    """Check if the user query is relevant to the database schema."""
+    """Check if the user query is relevant to the database schema and ensures it is a read-only query."""
     print(f"Checking relevance of the question: {state['user_query']}")
     detailed_schema = get_database_schema(db)
 
     messages = [
         HumanMessage(content=f"""
-        You are an assistant that determines whether a given question is related to the following database schema.
+        You are an assistant that determines whether a given question is related to the following database schema and ensures it is a read-only query.
 
-        Schema:
+        **Schema:**
         {detailed_schema}
 
-        Question: {state['user_query']}
+        **Question:** {state['user_query']}
         
-        Respond with only "relevant" or "not_relevant".
+        **Rules:**
+        1. If the question requires retrieving data (e.g., SELECT queries for viewing records), respond with **"relevant"**.
+        2. If the question suggests modifying the database (e.g., inserting, updating, deleting, or altering data), respond with **"non_relevant"**.
+        3. If the intent of the question is unclear but hints at data manipulation, assume it is **"non_relevant"**.
+
+        **Examples:**
+        - "What was my revenue last quarter?" → **relevant**
+        - "How many sales did I make last month?" → **relevant**
+        - "Delete my last invoice." → **non_relevant**
+        - "Update my revenue data for Q1." → **non_relevant**
+        - "Insert a new transaction for $500." → **non_relevant**
+
+        **Respond with ONLY "relevant" or "non_relevant" and nothing else.**
         """)
     ]
-    
+
     structured_llm = model.with_structured_output(RelevanceOutput)
     result = structured_llm.invoke(messages)
     state["relevance"] = result.relevance
     print(f"Relevance determined: {state['relevance']}")
-    
+
     # Initialize attempts counter
     state["attempts"] = 0
     state["sql_error"] = False
     state["query_rows"] = []
     
+    return state
+
+class OutputFormat(BaseModel):
+    """Determines what should be the output type for the user question."""
+    output_format: str
+    
+def determine_output_format(state: State):
+    """Determine if the response should be in text or graph format."""
+    print(f"Determining output format for: {state['user_query']}")
+
+    messages = [
+        HumanMessage(content=f"""
+        You are an assistant that determines whether the output format for a given question should be **text** or **graph**.
+
+        **Rules:**
+        1. If the question asks for a **trend, comparison, growth rate, distribution, or any form of analytical insights**, respond with **"graph"**.
+        2. If the question asks for a **single value, a count, a straightforward metric, or a direct lookup**, respond with **"text"**.
+        3. Assume the user expects an easily interpretable response in the most suitable format.
+        
+        **Examples:**
+        - "What is sales growth for the last 3 months?" → **graph**
+        - "Compare revenue of Q1 and Q2 this year." → **graph**
+        - "Show me the trend of expenses in the last 6 months." → **graph**
+        - "How many invoices were created last month?" → **text**
+        - "What was my total revenue last quarter?" → **text**
+        - "How many transactions were recorded today?" → **text**
+
+        **Respond with ONLY "graph" or "text" and nothing else.**
+        """)
+    ]
+
+    structured_llm = model.with_structured_output(OutputFormat)
+    result = structured_llm.invoke(messages)
+    state["output_format"] = result.output_format
+    print(f"Output format determined: {state['output_format']}")
+
     return state
 
 # Node 2: Generate SQL Query
@@ -175,26 +251,35 @@ class QueryOutput(BaseModel):
 
 def generate_sql_query(state: State):
     """Generate SQL query to fetch information."""
-    print(f"Converting question to SQL for user '{state['current_user']}': {state['user_query']}")
+    print(f"Converting question to SQL for user '{state['current_user']}' and business ID '{state['current_business']}': {state['user_query']}")
     detailed_schema = get_database_schema(db)
     
-    # Modify the prompt to include the current user context
+    # Modify the prompt to include both user and business context
     messages = [
         HumanMessage(content=f"""
         Given an input question, create a syntactically correct {db.dialect} query to run to help find the answer.
 
-        IMPORTANT: The current user is '{state['current_user']}'. Always scope your query to this user where applicable by adding appropriate WHERE clauses that filter for the current user's data.
+        IMPORTANT: The current user is '{state['current_user']}' ignore the brackets and store only the user name to make it suitable to use in further sql queries and the current business ID is {state['current_business']}. 
+        Always scope your query to this specific user and business where applicable by adding appropriate WHERE clauses 
+        that filter for both the current user's data and the current business.
         
-        Unless the user specifies in their question a specific number of examples they wish to obtain, always limit your query to at most {10} results. You can order the results by a relevant column to return the most interesting examples in the database.
+        Unless the user specifies in their question a specific number of examples they wish to obtain, always limit your query 
+        to at most {10} results. You can order the results by a relevant column to return the most interesting examples in the database.
         
         Never query for all the columns from a specific table, only ask for the few relevant columns given the question.
         
-        Pay attention to use only the column names that you can see in the schema description. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table.
+        Pay attention to use only the column names that you can see in the schema description. Be careful to not query for 
+        columns that do not exist. Also, pay attention to which column is in which table.
         
-        When querying user-related data:
+        When querying data, apply the following filters as appropriate:
         1. If there's a 'user_id' column in a table, add a condition like "WHERE user_id = (SELECT id FROM users WHERE name = '{state['current_user']}')"
         2. If there's a direct reference to a 'users' table, add "WHERE users.name = '{state['current_user']}'"
-        3. If joining with a users table, ensure the join condition includes filtering for the current user
+        3. If there's a 'business_id' column in a table, add a condition like "WHERE business_id = {state['current_business']}"
+        4. When joining with a users or businesses table, ensure the join conditions include filtering for both the current user and business
+        5. If a table appears to contain data for multiple businesses, always filter by business_id = {state['current_business']}
+
+        When both user and business filters are applicable, make sure to include both conditions 
+        (e.g., "WHERE user_id = X AND business_id = Y").
         
         Only use the following tables:
         {detailed_schema}
@@ -224,8 +309,6 @@ def execute_sql_query(state: State):
             state["query_rows"] = []
             state["sql_query_result"] = "No results found."
         else:
-            # For simplicity, we're storing the string result
-            # In a production system, you might want to parse this into rows
             state["sql_query_result"] = result
             state["query_rows"] = [{"result": result}]
             
@@ -306,7 +389,7 @@ def generate_readable_resp(state: State):
         Query result: {state["sql_query_result"]}
         
         Please generate a clear, concise response that answers the user's original question based on the SQL query results.
-        Start with "Hello {state["current_user"]}," and then provide the requested information in a friendly manner.
+        Start with "Hello {state["current_user"]}," and then provide the requested information in a friendly manner.ignore the brackets and show only the user name
         """)
     ]
     
@@ -367,6 +450,7 @@ workflow = StateGraph(State)
 # Add nodes
 workflow.add_node("get_current_user", get_current_user)
 workflow.add_node("check_relevance", check_relevance)
+workflow.add_node("determine_output_format", determine_output_format)
 workflow.add_node("generate_sql_query", generate_sql_query)
 workflow.add_node("execute_sql_query", execute_sql_query)
 workflow.add_node("generate_readable_resp", generate_readable_resp)
@@ -437,16 +521,16 @@ def run_query(user_query):
     
     return final_state
 
-# sample_query = "which employee has created most number of tasks?"
-# sample_query = "which task has taken most time to be completed?"
-# sample_query = "how many tasks are done by the employees?"
-# sample_query = "which user has created most number of tasks?."
 # sample_query = "what was the total sales of the user named Ajay pal last month ?."
 # sample_query = "what was the total number of invoices of the user named Ajay pal last month ?."
 # sample_query = "what is the name of the user who has user id 28 ?."
 # sample_query = "print the row storing the data of the user named Ajay Pal ?."
 # sample_query = "what were my orders last month?"
-sample_query = "who am i?"
+# sample_query = "how many business does the user with user id 5 has?"
+# sample_query = "what is total sum amount of the invoices created last month?."
+# sample_query = "what is my business name?."
+# sample_query = "Which customer has made the most purchases for the Manika Alora Pvt. Lmt business?."
+sample_query = "What were the total sales of my business. for the current year?."
 
 
 run_query(sample_query)
