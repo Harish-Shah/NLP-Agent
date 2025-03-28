@@ -21,8 +21,6 @@ def _set_env(var: str):
 _set_env("NVIDIA_API_KEY")
 
 model = ChatNVIDIA(model="meta/llama-3.3-70b-instruct")
-# db = SQLDatabase.from_uri("postgresql://anc:admin@localhost:5432/gid_db")
-# db = SQLDatabase.from_uri("postgresql://numbers_admin:admin@192.168.1.13:5431/postgres")
 db = SQLDatabase.from_uri("postgresql://anc2:admin@localhost:5432/finycsdb")
 query_prompt_template = hub.pull("langchain-ai/sql-query-system-prompt")
 
