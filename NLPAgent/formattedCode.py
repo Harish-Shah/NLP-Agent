@@ -1,4 +1,3 @@
-import json
 import os, getpass
 from typing import Any
 from langchain import hub
@@ -118,7 +117,7 @@ def get_current_user(state:State, config: RunnableConfig):
     
     return state
 
-# Node 1: Check Relevance
+# Node 2: Check Relevance
 class RelevanceOutput(BaseModel):
     """Determines if the query is relevant to the database schema."""
     relevance: str = Field(
@@ -169,7 +168,7 @@ def check_relevance(state: State):
     return state
 
 
-# Node 2: Generate SQL Query
+# Node 3: Generate SQL Query
 class QueryOutput(BaseModel):
     """Generated SQL query."""
     query: str = Field(..., description="Syntactically valid SQL query.")
@@ -207,7 +206,7 @@ def generate_sql_query(state: State):
              - For financial transactions, **determine account type** (`INCOME`, `EXPENSE`) using:  
                `numbers_app_transaction.business_account → numbers_app_chartofaccount.account → numbers_app_parentaccount.account_type`.  
              - If querying business details, **link through** `numbers_app_business.id`.  
-             - Use numbers_app_journalentry.transaction_date for filtering by financial year.
+             - Use numbers_app_journalentry.transaction_date for filtering transactions by financial year.
              - If filtering by **business name**, use `'legal_name'` instead of business_id.  
            - Fields ending in `_id` (e.g., `party_id`) **should be referenced as `.id`**.  
            - Foreign key fields not ending with _id you have to add _id for that foreign key field.
@@ -232,33 +231,20 @@ def generate_sql_query(state: State):
             4. Filter transactions for the previous fiscal year using `date_trunc('year', NOW() - INTERVAL '1 year')`.
             5. Group results by month (`date_trunc('month', transaction_date)`) and order them in descending order.
             6. The query should be optimized for performance and avoid unnecessary joins.
+            7. Query should consider company_name instead of name form numbers_app_party table
             
         **Fiscal Year Handling (Country-Specific):**
             - The fiscal year **varies by country**. The current and previous fiscal years should be determined dynamically from the `numbers_app_fiscalyear` table.
             - The `numbers_app_fiscalyear` table stores fiscal year data as `month_range` for each `business_id`.
-            - **Determine the fiscal year dynamically** based on today's date and retrieve the start and end dates from `numbers_app_fiscalyear` for the given business.
+            - **Determine the fiscal year dynamically** based on today’s date and retrieve the start and end dates from `numbers_app_fiscalyear` for the given business.
             - **Example for India (April - March Fiscal Year):**
               - If the query is about the **current fiscal year**, filter data from `2024-04-01` to `2025-03-31`.
               - If the query is about the **previous fiscal year**, filter data from `2023-04-01` to `2024-03-31`.
             - Use `numbers_app_journalentry.transaction_date` to filter transactions within the fiscal year.
-            - When the query involves a fiscal year, ensure **exactly 12 monthly records** are retrieved.
+            - When the query involves a fiscal year, ensure **all 12 monthly records** are retrieved.
+            - While querying for results related to year remove the Limit 10 to fetch all month records.
            
-        **Output Type Handling:**
-             - If the user's question requires a **chart-based output**, structure the SQL response accordingly.
-             - **Output Type: 'bar_chart'**
-               - On SQL query execution, **generate the response in JSON format**.
-               - Example output structure:
-                 ```
-                 [
-                     {{ "income": income_amount, 
-                        "expense": expense_amount, 
-                        "start_date": month_name_and_year 
-                     }},
-                     ...
-                 ]
-                 ```
-               - Ensure the response correctly **aggregates income and expense data** by month.
-               - `start_date` should be formatted as `Month Year` (e.g., `"April 2024"`).
+        
         When both user and business filters are applicable, make sure to include both conditions 
         (e.g., "WHERE user_id = X AND business_id = Y").
         
@@ -268,7 +254,21 @@ def generate_sql_query(state: State):
         User Question: {state['user_query']}
         """)
     ]
-    
+    # """**Output Type Handling:**
+    #          - If the user’s question requires a **chart-based output**, structure the SQL response accordingly.
+    #          - **Output Type: 'bar_chart'**
+    #            - On SQL query execution, **generate the response in JSON format**.
+    #            - Example output structure:
+    #              [
+    #                  {{ "income": income_amount,
+    #                     "expense": expense_amount,
+    #                     "start_date": month_name_and_year
+    #                  }},
+    #                  ...
+    #              ]
+    #
+    #            - Ensure the response correctly **aggregates income and expense data** by month.
+    #            - `start_date` should be formatted as `Month Year` (e.g., `"April 2024"`)."""
     structured_llm = model.with_structured_output(QueryOutput)
     result = structured_llm.invoke(messages)
     print("QUERY RESULT=====>",result)
@@ -277,7 +277,8 @@ def generate_sql_query(state: State):
     return state
 
 
-# Node 3: Execute SQL Query
+
+# Node 4: Execute SQL Query
 def execute_sql_query(state: State):
     """Execute the generated SQL query and store results."""
     sql_query = state["sql_query"].strip()
@@ -304,6 +305,7 @@ def execute_sql_query(state: State):
     
     return state
 
+# Node 5: Determine Output Format
 class OutputFormat(BaseModel):
     """Determines what should be the output type for the user question."""
     output_format: str
@@ -341,6 +343,8 @@ def determine_output_format(state: State):
 
     return state
 
+# Node 5A: Determine Chart Type
+
 class ChartType(BaseModel):
     chart_type: str
 
@@ -361,10 +365,10 @@ def determine_chart_type(state: State):
         
         **Examples:**
         - "What is sales growth for the last 3 months?" → **line_chart**
-        - "Compare revenue of Q1 and Q2 this year." → **bar_chart**
+        - "Compare revenue of Q1 and Q2 this year." → **bar_graph**
         - "Show me expense breakdown by category." → **pie_chart**
 
-        **Respond with ONLY "line_chart", "bar_chart", or "pie_chart".**
+        **Respond with ONLY "line_chart", "bar_graph", or "pie_chart".**
         """)
     ]
 
@@ -375,66 +379,92 @@ def determine_chart_type(state: State):
 
     return state
 
+# Node 5B: Format Chart Data based on chart type
 
-# TODO: remove unecessary data. 
-# add a period field to show the range of the data. 
-# add name field as the data point name.
-# store the result to show in a key called barChartData
-# returns all data wrapped in a list
 def format_chart_data(state: State):
     """Use LLM to format the query result into the required structure."""
     
     print(f"Formatting query result using LLM for output type: {state['output_format']}")
-    print(state["query_rows"])
+    # print(state["query_rows"])
+    
+    chart_type = state['chart_type']
+    
+    # Define the appropriate data wrapper based on chart_type
+    if chart_type == "bar_graph":
+        data_key = "barChartData"
+    elif chart_type == "line_chart":
+        data_key = "lineChartData"
+    elif chart_type == "pie_chart":
+        data_key = None  # Pie chart has a different structure
+    else:
+        raise ValueError("Invalid chart_type. Supported types: bar_graph, line_chart, pie_chart.")
+    
     messages = [
         HumanMessage(content=f"""
         You are an assistant that formats financial query results into the appropriate output format.
         
         **User Query:** {state["user_query"]}
         **Output Format:** {state["output_format"]}
+        **Chart Type:** {state['chart_type']}
         
         **Instructions:**
-        - If the output format is **"text"**, return the result as a simple, human-readable string.
-        - If the output format is **"graph"**, structure the response as a JSON list where:
+        - If the chart type is **bar_graph** or **line_chart**, structure the response as:
           - Each entry represents a time period (e.g., month, quarter, or year).
           - Fields:
+            -  `"name"` : based on the User Query choose an appropriate name for the graph which is to be displayed.
             - `"result"`: The numerical result (formatted as a string with two decimal places).
             - `"tooltip"`: Provide any additional helpful information (or `null` if not needed).
             - `"from_date"`: The start date of the period in `YYYY-MM-DDTHH:MM:SS` format.
             - `"to_date"`: The end date of the period in `YYYY-MM-DDTHH:MM:SS` format.
-            - `"period"`: based on the from_date and to_date choose an appropriate name
+            - `"period"`: based on the from_date and to_date choose an appropriate name.
         
+        Generate and return a JSON-formatted dataset accordingly but don't include json in the JSON format.  
+         
         **Examples:**
         - If asked "What is sales growth for the last 3 months?", the response should be:
-          ```json
-          [
-              {{"result": "3451687.00", "tooltip": null, "from_date": "2024-04-01T00:00:00", "to_date": "2024-04-30T00:00:00","period": "Jan 2024"}},
-              {{"result": "2469717.00", "tooltip": null, "from_date": "2024-05-01T00:00:00", "to_date": "2024-05-31T00:00:00","period": "Feb 2024"}},
-              {{"result": "2897087.00", "tooltip": null, "from_date": "2024-06-01T00:00:00", "to_date": "2024-06-30T00:00:00","period": "March 2024"}}
-          ]
           ```
-        - If asked "How many invoices were created last month?", return a simple string:
-          `"There were 325 invoices created in February 2025."`
-        
+        [
+            {{ 
+            name : "Graph Name"
+            {data_key} :
+            [
+                {{"result": "3451687.00", "tooltip": null, "from_date": "2024-04-01T00:00:00", "to_date": "2024-04-30T00:00:00","period": "Jan 2024"}},
+                {{"result": "2469717.00", "tooltip": null, "from_date": "2024-05-01T00:00:00", "to_date": "2024-05-31T00:00:00","period": "Feb 2024"}},
+                {{"result": "2897087.00", "tooltip": null, "from_date": "2024-06-01T00:00:00", "to_date": "2024-06-30T00:00:00","period": "March 2024"}}
+            ]
+            }}
+        ]
+        - If the chart type is **pie_chart**, structure the response as:
+        - If aksed "Show me sales breakdown by customers."
+          ```
+        [
+            {{"name": "Hansa Direct Pvt Ltd Payable", "tooltip_message": null, "amount": 7670}},
+            {{"name": "Mr. Ajay Pal Payable", "tooltip_message": null, "amount": 982}},
+            {{"name": "Mr. Pal Payable", "tooltip_message": null, "amount": 10000}},
+            {{"name": "Aditya Dhamal Payable", "tooltip_message": null, "amount": 2349.91}}
+        ]
+          ```
+
         **Query Result:**
-        ```json
-        {state["query_rows"]}
-        ```
+        {state["sql_query_result"]}
         
+        **If there are more then 1 parameters example income and expense create multiple objects in the array each representing the data of the different parameters present in the user query.so the length of the array will be equal to the number of parameters.**
+        
+        **Be sure that all the brackets are closed correctly and json format in not incomplete**
         **Generate ONLY the formatted output. Do NOT include explanations.**
         """)
     ]
 
     # structured_llm = model.with_structured_output(dict)  # Ensure output is JSON
-    result = model.invoke(messages)
+    result = model.invoke(messages, max_tokens=4096)  # Set to a higher value
 
     # Store formatted output in state
-    state["readable_resp"] = result
-    print("Formatted output successfully stored.")
+    state["readable_resp"] = result.content
+    print("Formatted output successfully stored.",result)
 
     return state
 
-# Node 4: Generate Funny Response (for irrelevant questions)
+# Node 2A: Generate Funny Response (for irrelevant questions)
 def generate_funny_response(state: State):
     """Generate a playful response for irrelevant questions."""
     print("Generating a funny response for an unrelated question.")
@@ -455,7 +485,7 @@ def generate_funny_response(state: State):
     
     return state
 
-# Node 5: Regenerate Query
+# Node 4A: Regenerate Query
 class RewrittenQuestion(BaseModel):
     """Rewritten version of the original question."""
     question: str = Field(description="The rewritten question to generate a better SQL query.")
@@ -512,7 +542,7 @@ def generate_readable_resp(state: State):
     
     return state
 
-# Node 7: Max Attempts Reached
+# Node 4B: Max Attempts Reached
 def end_max_iterations(state: State):
     """Handle case when maximum attempts are reached."""
     print("Maximum attempts reached. Ending the workflow.")
@@ -655,9 +685,9 @@ def run_query(user_query):
     
     return final_state
 
-sample_query = "What are the income and expensses of the current fiscal year by month for my business?"
+sample_query = "What are the income and expenses of the current fiscal year by month for my business?"
 # sample_query = "What is number of invoices created month by month in previous year for my business?"
 
-run_query(sample_query)
+# run_query(sample_query)
 
 
