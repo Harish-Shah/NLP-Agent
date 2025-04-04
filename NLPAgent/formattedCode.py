@@ -1,9 +1,13 @@
+import torch
+import fingpt
 import os, getpass
 from typing import Any
 from langchain import hub
+from peft import PeftModel
 from datetime import datetime
 from sqlalchemy import inspect
 from pydantic import BaseModel, Field
+from transformers import AutoTokenizer, AutoModel
 from NLPAgent.constants import database_schema
 from langchain_core.messages import HumanMessage
 from typing_extensions import Annotated, TypedDict
@@ -12,6 +16,19 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain_community.utilities import SQLDatabase
 from langchain_core.runnables.config import RunnableConfig
+
+
+base_model_name = "THUDM/chatglm2-6b"
+adapter_name = "FinGPT/fingpt-mt_chatglm2-6b_lora"
+hf_token = "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"
+
+# Load base tokenizer & model
+tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True, use_auth_token=hf_token)
+base_model = AutoModel.from_pretrained(base_model_name, trust_remote_code=True, use_auth_token=hf_token).half().cuda()
+
+# Apply the LoRA adapter
+model = PeftModel.from_pretrained(base_model, adapter_name, use_auth_token=hf_token)
+model.eval()
 
 def _set_env(var: str):
     if not os.environ.get(var):
@@ -687,7 +704,7 @@ def run_query(user_query):
 
 sample_query = "What are the income and expenses of the current fiscal year by month for my business?"
 # sample_query = "What is number of invoices created month by month in previous year for my business?"
+sample_query = "How my sales is distributed across different customers?"
 
 # run_query(sample_query)
-
 
