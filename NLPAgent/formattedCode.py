@@ -6,21 +6,30 @@ from sqlalchemy import inspect
 from pydantic import BaseModel, Field
 from NLPAgent.constants import database_schema
 from langchain_core.messages import HumanMessage
-from typing_extensions import Annotated, TypedDict
+from typing_extensions import Annotated, TypedDict, Literal
 from langgraph.graph import START, StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain_community.utilities import SQLDatabase
 from langchain_core.runnables.config import RunnableConfig
+from langchain_openai import ChatOpenAI
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import FAISS
 
 def _set_env(var: str):
     if not os.environ.get(var):
         # os.environ[var] = getpass.getpass(f"{var}: ")
         os.environ[var] = "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"
+    #    os.environ["OPENAI_API_KEY"] = getpass.getpass("Enter API key for OpenAI: ")
+
+# Initialize embeddings model
+embedding_model = OpenAIEmbeddings()     
 
 _set_env("NVIDIA_API_KEY")
+# _set_env("OPENAI_API_KEY")
 
 model = ChatNVIDIA(model="meta/llama-3.3-70b-instruct")
+# model = ChatOpenAI(openai_api_key=os.environ["OPENAI_API_KEY"], temperature=0.7, model="gpt-4o")
 db = SQLDatabase.from_uri("postgresql://anc2:admin@localhost:5432/finycsdb")
 query_prompt_template = hub.pull("langchain-ai/sql-query-system-prompt")
 
@@ -41,6 +50,7 @@ class State(TypedDict):
     formatted_chart_data : Any
     current_user: str
     current_business: int
+    requested_business_type : str
 
 def get_database_schema(db):
     """
@@ -167,6 +177,29 @@ def check_relevance(state: State):
     
     return state
 
+def validate_query_scope(state):
+    print("Request Different Business")
+    messages = [
+        HumanMessage(content=f"""
+            You are an AI analyzing data. Check if the user's query contains a business or users name or ID and whether it matches the given business and user details .
+        
+            Business Details: {{"business": "Manika Alora Pvt. Ltd", "id": 198}}
+            User Details:{{"user_id" : 5, "name": "Ajay Pal"}}
+            User Query: {state["user_query"]}
+        
+            Respond Only with:
+            - "same business" if the query does not mention any business or users details OR if the mentioned business or users name or ID matches the provided details OR does not find any business or users details .
+            - "different business" if the query contains a business or users name or ID that does not match the provided details.
+        """)
+        ]
+    result = model.invoke(messages)
+    print(result.content)
+    state["requested_business_type"] = result.content
+    return state
+
+def unauthorized_data_access_message(state): 
+    state["readable_resp"] = "You can only query data related to your own business."
+    return state
 
 # Node 3: Generate SQL Query
 class QueryOutput(BaseModel):
@@ -179,6 +212,9 @@ def generate_sql_query(state: State):
     # detailed_schema = get_database_schema(db)
     detailed_schema = database_schema
     
+        # Unless the user specifies in their question a specific number of examples they wish to obtain, always limit your query 
+        # to at most {10} results. You can order the results by a relevant column to return the most interesting examples in the database.
+        
     # Modify the prompt to include both user and business context
     messages = [
         HumanMessage(content=f"""
@@ -191,8 +227,7 @@ def generate_sql_query(state: State):
         Always scope your query to this specific user and business where applicable by adding appropriate WHERE clauses 
         that filter for both the current user's data and the current business.
         
-        Unless the user specifies in their question a specific number of examples they wish to obtain, always limit your query 
-        to at most {10} results. You can order the results by a relevant column to return the most interesting examples in the database.
+
         
         Never query for all the columns from a specific table, only ask for the few relevant columns given the question.
         
@@ -271,7 +306,7 @@ def generate_sql_query(state: State):
     #            - `start_date` should be formatted as `Month Year` (e.g., `"April 2024"`)."""
     structured_llm = model.with_structured_output(QueryOutput)
     result = structured_llm.invoke(messages)
-    print("QUERY RESULT=====>",result)
+    # print("QUERY RESULT=====>",result)
     state["sql_query"] = result.query
     print(f"Generated SQL query: {state['sql_query']}")
     return state
@@ -460,7 +495,7 @@ def format_chart_data(state: State):
 
     # Store formatted output in state
     state["readable_resp"] = result.content
-    print("Formatted output successfully stored.",result)
+    print("Formatted output successfully stored.")
 
     return state
 
@@ -532,7 +567,7 @@ def generate_readable_resp(state: State):
         
         Please generate a clear, concise response that answers the user's original question based on the SQL query results.
         Start with "Hello {state["current_user"]}," and then provide the requested information in a friendly manner.ignore the brackets and show only the user name.
-        dont give sensitive info like business id or user id in the response
+        **do not provide sensitive info like business id or user id in the response**.
         """)
     ]
     
@@ -569,9 +604,17 @@ def end_max_iterations(state: State):
 def relevance_router(state: State):
     """Route based on query relevance."""
     if state["relevance"].lower() == "relevant":
-        return "generate_sql_query"
+        return "validate_query_scope"
+        # return "generate_sql_query"
     else:
         return "generate_funny_response"
+
+
+def check_business_router(state) -> Literal["generate_sql_query", "unauthorized_data_access_message"]:
+    if state["requested_business_type"] == "same business":
+        return "generate_sql_query"
+    else:
+        return "unauthorized_data_access_message"
 
 def execute_sql_router(state: State):
     """Route based on SQL execution result."""
@@ -600,12 +643,14 @@ workflow = StateGraph(State)
 # Add nodes
 workflow.add_node("get_current_user", get_current_user)
 workflow.add_node("check_relevance", check_relevance)
+workflow.add_node("validate_query_scope", validate_query_scope)
 workflow.add_node("generate_sql_query", generate_sql_query)
 workflow.add_node("execute_sql_query", execute_sql_query)
 workflow.add_node("determine_output_format", determine_output_format)
 workflow.add_node("determine_chart_type", determine_chart_type)
 workflow.add_node("format_chart_data", format_chart_data)
 workflow.add_node("generate_readable_resp", generate_readable_resp)
+workflow.add_node("unauthorized_data_access_message", unauthorized_data_access_message)
 workflow.add_node("regenerate_query", regenerate_query)
 workflow.add_node("generate_funny_response", generate_funny_response)
 workflow.add_node("end_max_iterations", end_max_iterations)
@@ -619,9 +664,18 @@ workflow.add_conditional_edges(
     "check_relevance",
     relevance_router,
     {
-        "generate_sql_query": "generate_sql_query",
+        "validate_query_scope": "validate_query_scope",
         "generate_funny_response": "generate_funny_response",
     },
+)
+
+workflow.add_conditional_edges(
+    "validate_query_scope", 
+    check_business_router,
+    {
+        "generate_sql_query": "generate_sql_query",
+        "unauthorized_data_access_message": "unauthorized_data_access_message",
+    }
 )
 
 workflow.add_edge("generate_sql_query", "execute_sql_query")
@@ -663,6 +717,7 @@ workflow.add_edge("generate_readable_resp", END)
 workflow.add_edge("generate_funny_response", END)
 workflow.add_edge("end_max_iterations", END)
 workflow.add_edge("format_chart_data", END)
+workflow.add_edge("unauthorized_data_access_message", END)
 
 # Compile the graph
 graph = workflow.compile()
@@ -685,7 +740,9 @@ def run_query(user_query):
     
     return final_state
 
-sample_query = "What are the income and expenses of the current fiscal year by month for my business?"
+# sample_query = "how my sales in distributed across different customers?"
+# sample_query = "how is my sales performance in this quarter compared to the previous quarter?"
+sample_query = "What are the income and expenses of the previous fiscal year by month for my business?"
 # sample_query = "What is number of invoices created month by month in previous year for my business?"
 
 # run_query(sample_query)
