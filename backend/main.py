@@ -1,74 +1,76 @@
-import os, getpass
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
-from functools import lru_cache
-from langchain_core.messages import HumanMessage
 from fastapi.middleware.cors import CORSMiddleware
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
-
-# Set NVIDIA API key
-def _set_env(var: str):
-    if not os.environ.get(var):
-        os.environ[var] = getpass.getpass(f"{var}: ")
-
-_set_env("NVIDIA_API_KEY")
-
-# Initialize AI Model
-model = ChatNVIDIA(model="meta/llama-3.3-70b-instruct")
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+import torch
+from NLPAgent.formattedCode import run_query
+from typing import List, Any, Optional
+import traceback
 
 app = FastAPI()
 
+# Enable CORS (same as Flask's `CORS(app)`)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Or specify your frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Define Request and Response Models
-class SummarizeRequest(BaseModel):
-    legal_act: str
+# Load model and tokenizer
+model_id = "defog/sqlcoder-7b-2"
 
-class SummarizeResponse(BaseModel):
-    summary: str
+print("Loading model...")
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+    device_map="auto"
+)
 
-class ReferencesRequest(BaseModel):
-    legal_act: str
+pipe = pipeline(
+    "text-generation",
+    model=model,
+    tokenizer=tokenizer,
+    max_new_tokens=512,
+    temperature=0.2
+)
 
-class ReferencesResponse(BaseModel):
-    references: str
+print("Model loaded and ready!")
 
-# Node 1
-def get_summary(legal_act: str) -> str:
-    summary_prompt = f"Summarize the following legal act:\n\n{legal_act}"
-    response = model.invoke([HumanMessage(content=summary_prompt)])
-    return response.content
+# Request model
+class QueryRequest(BaseModel):
+    query: str
 
-# Node 2
-def get_references(legal_act: str) -> str:
-    reference_prompt = (
-        f"Find Supreme Court judgments where the following legal provision has been cited or referenced:\n\n{legal_act}."
-        f" Provide case citations, case names, and a brief explanation of how the provision was applied."
-    )
-    response = model.invoke([HumanMessage(content=reference_prompt)])
-    return response.content
+# Response model (optional for stricter typing)
+class QueryResponse(BaseModel):
+    output_format: Optional[str]
+    chart_type: Optional[str]
+    readable_resp: Optional[str]
+    formatted_chart_data: List[Any]
+    
+# Input format
+class PromptRequest(BaseModel):
+    prompt: str
 
-# API Endpoints
-@app.post("/summarize", response_model=SummarizeResponse)
-def summarize(data: SummarizeRequest):
-    summary = get_summary(data.legal_act)
-    return SummarizeResponse(summary=summary)
+# API route
+@app.post("/api/financial-query", response_model=QueryResponse)
+async def financial_query(payload: QueryRequest):
+    print(traceback.format_exc())  # Full error trace in your server logs
+    try:
+        result = run_query(payload.query)
+        return {
+            "output_format": result.get("output_format"),
+            "chart_type": result.get("chart_type"),
+            "readable_resp": result.get("readable_resp"),
+            "formatted_chart_data": result.get("query_rows", [])
+        }
+    except Exception as e:
+        return {
+            "output_format": None,
+            "chart_type": None,
+            "readable_resp": f"Error: {str(e)}",
+            "formatted_chart_data": []
+        }
 
-@app.post("/fetch-references", response_model=ReferencesResponse)
-def fetch_references(data: ReferencesRequest):
-    references = get_references(data.legal_act)
-    return ReferencesResponse(references=references)
-
-# Run the API
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-
-# Command to start server 
-# uvicorn main:app --reload
