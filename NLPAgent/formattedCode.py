@@ -15,6 +15,11 @@ from langchain_core.runnables.config import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from langchain_huggingface import HuggingFaceEndpoint
+import torch
+
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = "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"
 
 def _set_env(var: str):
     if not os.environ.get(var):
@@ -23,10 +28,11 @@ def _set_env(var: str):
     #    os.environ["OPENAI_API_KEY"] = getpass.getpass("Enter API key for OpenAI: ")
 
 # Initialize embeddings model
-embedding_model = OpenAIEmbeddings()     
+# embedding_model = OpenAIEmbeddings()     
 
 _set_env("NVIDIA_API_KEY")
 # _set_env("OPENAI_API_KEY")
+
 
 model = ChatNVIDIA(model="meta/llama-3.3-70b-instruct")
 # model = ChatOpenAI(openai_api_key=os.environ["OPENAI_API_KEY"], temperature=0.7, model="gpt-4o")
@@ -283,8 +289,8 @@ def generate_sql_query(state: State):
         When both user and business filters are applicable, make sure to include both conditions 
         (e.g., "WHERE user_id = X AND business_id = Y").
         
-        Database Schema:
-        {detailed_schema}
+        ### Database Schema:
+        {detailed_schema} ###
         
         User Question: {state['user_query']}
         """)
@@ -742,8 +748,9 @@ def run_query(user_query):
 
 # sample_query = "how my sales in distributed across different customers?"
 # sample_query = "how is my sales performance in this quarter compared to the previous quarter?"
-sample_query = "What are the income and expenses of the previous fiscal year by month for my business?"
-# sample_query = "What is number of invoices created month by month in previous year for my business?"
+# sample_query = "What are the income and expenses of the previous fiscal year by month for my business?"
+sample_query = "What is number of invoices created month by month in previous year for my business?"
+
 
 # run_query(sample_query)
 

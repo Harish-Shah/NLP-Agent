@@ -80,7 +80,8 @@ database_schema =  {
         "fiscal_year": "numbers_app_fiscalyear"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "The Country model stores country-specific configurations used in the financial system — including currency, time zones, fiscal settings, and formatting preferences. Relationships: Currency: Foreign key to Currency model (nullable) TimeZone: Many-to-Many link to TimeZone (e.g., a country might span multiple zones) DateFormat: Optional link to how dates should be formatted (e.g., DD/MM/YYYY) FiscalYear: Link to fiscal year configuration used in accounting"
     },
     "numbers_app_state": {
       "columns": {
@@ -157,7 +158,8 @@ database_schema =  {
           "EQUITY": "Equity"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description":"This model defines top-level financial account categories in a business’s chart of accounts. Relationships: 1.parent_account ForeignKey Allows accounts to be nested (tree structure) with Self-FK.2.business ForeignKey Indicates ownership of this account definition by a business."
     },
     "numbers_app_historicalaccount": {
       "columns": {
@@ -195,7 +197,8 @@ database_schema =  {
         "parent_account": "numbers_app_parentaccount"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "This model represents individual financial accounts that belong to a broader Parent Account category. These are the leaf-level accounts used for tracking specific income, expenses, assets, etc., in accounting transactions. Relationships: 1. parent_account FK Every Account must be grouped under a ParentAccount, allowing roll-ups for reporting (like total expenses). 2. Via ParentAccount Inherited indirectly from ParentAccount.business. Accounts are implicitly scoped by business context.Examples: Parent Account Operating Expenses => Account like Travel, Meals, Office supplies Parent Account Income => Account like Product sales, Service income"
     },
     "numbers_app_business": {
       "columns": {
@@ -246,7 +249,8 @@ database_schema =  {
           "tally": "tally"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "The Business model stores all the core details about a business or company, including contact info, 		compliance identifiers, financial settings, and integration preferences. This model is central to the entire accounting system — everything from user transactions to reporting and compliance links back to this model. Relationships: * Industry: Each business belongs to one Industry * State, Country, Currency: Linked to geo and finance reference data * FiscalYear, TimeZone, DateFormat: For proper reporting settings * Customer: Optionally associated with a customer record * Accounts: Through the ChartofAccount model (acts as the bridge between Business and individual accounts)"
     },
     "numbers_app_businesscontacts": {
       "columns": {
@@ -267,7 +271,8 @@ database_schema =  {
           "secondary": "Secondary"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "Stores individual contact details associated with a specific business—useful for managing primary or secondary points of contact for that business. Relationships: business → ForeignKey to the Business model Each contact is linked to one business. A business can have multiple contacts (1-to-many)."
     },
     "numbers_app_userrole": {
       "columns": {
@@ -329,7 +334,8 @@ database_schema =  {
         "user": "numbers_app_user"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "Represents a customer user account that can be associated with one or more businesses, while tracking limits and timestamps.Primarily used to extend user functionality for business management. business_limit can be used to implement plan-based restrictions (e.g., free vs premium users). Relationships: 1.user -> ForeignKey User. The user account for the customer."
     },
     "numbers_app_userbusinessrole": {
       "columns": {
@@ -381,7 +387,8 @@ database_schema =  {
           "through_column_source": "id",
           "through_column_target": "parent_account"
         }
-      }
+      },
+      "description": "This model links a specific account to a business, along with the account’s balance and other related info. 	It acts as a bridge table between Business and Account, representing how accounts are used by each business. Relationships: 1. business FK The business that owns/uses the account. 2. account FKThe actual financial account being used by this business. Constraints: unique_together = ('business', 'account')"
     },
     "numbers_app_journalentry": {
       "columns": {
@@ -427,7 +434,8 @@ database_schema =  {
           "refund_payment": "Refund Payment"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "This model represents a financial transaction entry in the system — like recording income, expenses, 		adjustments, etc. Each entry includes who created it, what business it belongs to, how much it was for, and other contextual data. Relationships: 1. The user who created this journal entry. 2. The user who last updated the entry (can be null). 3. The business this journal entry belongs to.4. A link to another journal entry if this is a contra entry (a reversing or balancing entry). 5. The currency used in the transaction (e.g., USD, EUR). User ↔ JournalEntry ↔ Business ↔ Currency Fields:  transaction_amount: The amount involved in this journal entry. transaction_date: When the transaction occurred. is_contra: Indicates if this entry is a contra (reverse) transaction. is_removed: Soft delete flag."
     },
     "numbers_app_transaction": {
       "columns": {
@@ -459,7 +467,8 @@ database_schema =  {
           "through_column_source": "id",
           "through_column_target": "account"
         }
-      }
+      },
+      "description": "This model represents an individual debit or credit entry that is part of a JournalEntry. Each JournalEntry 	can have multiple Transactions (i.e., multiple lines in an accounting entry, like a typical double-entry bookkeeping system). Relationships: 1. journal_entry(JournalEntry) Links the transaction to a specific journal entry (like a header). 2.business_account(ChartofAccount) Specifies the account (like Cash, Revenue, Expense) the transaction 	affects. JournalEntry ➝ Transaction ➝ ChartofAccount ➝ Account ➝ ParentAccount"
     },
     "numbers_app_chartofaccountstemplates": {
       "columns": {
@@ -790,7 +799,8 @@ database_schema =  {
           "DEBIT": "DEBIT"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "The Party model represents an entity the business interacts with—either a customer or a vendor. It stores comprehensive details about the party including identification, contact info, financial settings, payment preferences, and taxation details.Used across modules like invoices, payments, purchases, and receipts, this model acts as a central node for any party-related transaction or ledger entry in the system. Relationships: 1.business →ForeignKey Business. Associates the party with a specific business 2.account →ForeignKey ChartofAccount. Ledger account associated with this party 3.opening_balance_journal_entry →ForeignKey JournalEntry. Journal entry linked to the party’s opening balance 4.created_by, updated_by →ForeignKey User. Tracks who created or updated the party"
     },
     "numbers_app_partyattachment": {
       "columns": {
@@ -1117,7 +1127,8 @@ database_schema =  {
           "service": "Service"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "The Items model represents products or services available for purchase, sale, or inventory management 	within a business. It supports detailed tracking of pricing, taxation, stock levels, and classification. Sales or 	purchase invoices. Inventory and stock tracking. Tax-inclusive/inventory alert systems. Relationships: 1.business →ForeignKey Business. Business to which this item belongs 2.purchase_account, sales_account →ForeignKey ChartofAccount. Linked accounts for purchase/sales transactions 3.created_by, updated_by  →ForeignKey User. User audit tracking"
     },
     "numbers_app_historicalitemstockadjustment": {
       "columns": {
@@ -1223,7 +1234,8 @@ database_schema =  {
         "business": "numbers_app_business"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "Represents a sales representative associated with a specific business, primarily used for tracking sales activities or assignments. Assigning sales reps to customers, invoices, or deals. Tracking sales performance or lead ownership. Email communication with sales contacts Relationships: 1.business →ForeignKey Business. Links the salesperson to a specific business entity"
     },
     "numbers_app_historicalrecurringinvoice": {
       "columns": {
@@ -1322,7 +1334,8 @@ database_schema =  {
           "create_and_save": "Create and save"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "This model defines automated, repeating invoices for customers based on a schedule.Manages invoice 	templates that generate recurring invoices.Stores frequency, schedule, and preferences for automated 	billing.Tracks lifecycle (start, end, status) and history of recurring invoices. Relationships: 1.business -> ForeignKey Business. the owning business. 2.customer  -> ForeignKey Customer. the recipient party."
     },
     "numbers_app_historicalinvoice": {
       "columns": {
@@ -1511,7 +1524,8 @@ database_schema =  {
           "no_tax": "No Tax"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "This model represents a sales invoice generated by a business for a customer, capturing all transactional, tax, and accounting details.Records invoice details for goods/services sold.Tracks payments, taxes, discounts, and TDS/TCS. Supports multi-currency invoicing, recurring billing, and credit note adjustments. Relationships: 1.business -> ForeignKey Business. issuing business. 2.customer  -> ForeignKey Customer. party being invoiced. 3.journal_entry ->  ForeignKey JournalEntry.links to accounting journal. 4.recurring_invoice ->	ForeignKey RecurringInvoice.links to recurring template, if applicable."
     },
     "numbers_app_creditnoteinvoicepayment": {
       "columns": {
@@ -1589,7 +1603,8 @@ database_schema =  {
         "sales_invoice": "numbers_app_invoice"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "This model captures line item details within a sales invoice, representing individual goods or services billed. Represents each itemized entry in a sales invoice.Supports discounts at the item level, not just invoice level.Helps in financial reporting by mapping items to Chart of Accounts.Tracks tax per item for granular taxation. Relationships: 1.sales_invoice → ForeignKey Invoice. parent Invoice to which the item belongs. 2.item → ForeignKey Item. reference to the product/service being billed. 3.expense_category → ForeignKey ChartofAccount. account categorization (e.g., for cost tracking)."
     },
     "numbers_app_hsnsaccode": {
       "columns": {
@@ -1773,7 +1788,8 @@ database_schema =  {
           "no_tax": "No Tax"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "Represents a purchase bill issued by a vendor to a business, including line items, tax details, payment info, and accounting linkage. Stores detailed tax breakdown (CGST, SGST, IGST) in JSON. Allows linking multiple DebitNotes for partial/full payments. Relationships: 1.business (ForeignKey → Business) The business receiving the bill. 2.journal_entry (ForeignKey → JournalEntry) Links the bill to its accounting entry. 3.vendor (ForeignKey → Party) The vendor issuing the bill. 4.created_by (ForeignKey → User) User who created the bill. A Bill is a central document in purchase workflows. Closely tied to accounting (JournalEntry) and reporting (via Tax, Currency, etc.). Each bill can have multiple BillItems (linked by purchase_bill in BillItems model)."
     },
     "numbers_app_debitnotebillpayment": {
       "columns": {
@@ -1813,7 +1829,8 @@ database_schema =  {
         "purchase_bill": "numbers_app_bill"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "Represents individual line items in a purchase bill, detailing product/service purchased, pricing, quantity, tax, and expense classification. Each BillItems entry belongs to a single Bill but can reference various other 	models like Items, Units, and Tax. Supports flexible discounting and tax per item. Ideal for detailed purchase bill records with accounting and inventory linkage. Relationships: 1.item ForeignKey → Items The product or service purchased. 2.expense_category ForeignKey → ChartofAccount The account under which this item’s expense is categorized. 3.purchase_bill ForeignKey → Bill The bill to which this item belongs"
     },
     "numbers_app_excesspaymentbillpayment": {
       "columns": {
@@ -1956,7 +1973,8 @@ database_schema =  {
           "no_tax": "No Tax"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "Represents a sales order issued by a business to a customer, detailing product/service commitments, delivery expectations, and financial terms.Captures customer commitments before invoicing.Acts as a preliminary agreement outlining products/services to be delivered and terms. Relationships: 1.business -> ForeignKey Business. issuing business. 2.customer  -> ForeignKey Customer. party receiving the order. 3.invoice ->  ForeignKey Invoice. linked invoice if the order is converted. 4.created_by / updated_by → ForeignKey User.  users managing the order. "
     },
     "numbers_app_salesorderitems": {
       "columns": {
@@ -1980,7 +1998,8 @@ database_schema =  {
         "sales_order": "numbers_app_salesorder"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "Represents individual line items listed in a SalesOrder. Each instance corresponds to a specific product/service ordered by the customer. Tracks the items and associated details in a sales order. Relationships: 1.item → ForeignKey Item. the product or service being ordered. 2.sales_order →ForeignKey SalesOrder. parent order to which this item belongs."
     },
     "numbers_app_historicalpurchaseorder": {
       "columns": {
@@ -2099,7 +2118,8 @@ database_schema =  {
           "no_tax": "No Tax"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "The PurchaseOrder model is used to represent an order placed by a business to a vendor for goods or services. It contains all necessary commercial and logistical information such as vendor details, items, tax information, delivery expectations, and total costs. It serves as a pre-bill (pre-invoice) document that can later be converted into a Bill. Send formal purchase requests to vendors. Track outstanding purchase orders. Manage vendor terms and delivery tracking. Relationships: 1.business →ForeignKey Business. The business entity placing the order 2.vendor  →ForeignKey Party. The vendor (usually with role = vendor) to whom the PO is issued 3.bill →ForeignKey Bill. Reference to the bill once the PO is converted 4.created_by, updated_by →ForeignKey User. Tracks who created and last updated the PO"
     },
     "numbers_app_purchaseorderitems": {
       "columns": {
@@ -2125,7 +2145,8 @@ database_schema =  {
         "purchase_order": "numbers_app_purchaseorder"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "The PurchaseOrderItems model represents individual line items in a PurchaseOrder. Each entry corresponds to one item ordered from a vendor, including pricing, tax, quantity, and discount information. Relationships: 1.purchase_order →ForeignKey PurchaseOrder. Links this item to a specific purchase order 2.item →ForeignKey Items. The product or service being ordered 3.expense_category →ForeignKey ChartofAccount. Accounting category for the expense"
     },
     "numbers_app_historicalpayment": {
       "columns": {
@@ -2256,7 +2277,8 @@ database_schema =  {
           "net_banking": "Net Banking"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "The Payment table tracks all incoming (receive) and outgoing (pay) financial transactions related to a business. It records payment details, accounting metadata, tax implications, and maintains audit history. This model supports features like multi-currency, TDS (Tax Deducted at Source), reverse charge, and payment attachments, making it robust for general accounting and compliance workflows. Relationships: 1.business -> Many-to-One (FK) Business. Links payment to a specific business entity. 2.journal_entry -> Optional Many-to-One (FK) JournalEntry. Associates the payment with an accounting journal entry. 3.party -> Optional Many-to-One (FK) Party. Represents the customer or vendor the payment is associated with. 4.account -> Optional Many-to-One (FK) ChartofAccount. The ledger account where the payment is posted. 5.tds_account -> Optional Many-to-One (FK) ChartofAccount. Used when TDS (Tax Deducted at Source) is applicable. 6.created_by / updated_by -> Optional Many-to-One (FK) User. Tracks who created or last modified the record."
     },
     "numbers_app_paymentfor": {
       "columns": {
@@ -2423,7 +2445,8 @@ database_schema =  {
           "no_tax": "No Tax"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "To create and manage price estimates or quotations for customers.Acts as a non-binding proposal that 	can later be converted into an invoice or sales order.When a customer requests a price quote before committing to purchase.To keep track of proposals that may later turn into sales orders or invoices. Helps streamline the sales pipeline and ensures consistency in customer communications. Relationships: 1. business -> ForeignKey Business. tthe business issuing the estimate. 2. customer -> ForeignKey Customer. the recipient of the estimate. 3.sales_person -> ForeignKey SalesPerson. employee handling the estimate. 4.invoice -> ForeignKey Invoice. linked if the estimate was converted to an invoice. 5.sales_order -> ForeignKey SalesOrder. linked if it became a sales order."
     },
     "numbers_app_estimateitems": {
       "columns": {
@@ -2447,7 +2470,8 @@ database_schema =  {
         "estimate": "numbers_app_estimate"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "This model represents the individual items listed in a sales estimate. It stores details like the item, quantity, rate, tax, discount, and total amount. Used for calculating the total value of the estimate. Provides detailed breakdowns for customer visibility and record-keeping.Whenever an estimate is created, EstimateItems are added to list all included products/services. Relationships: 1.item -> ForeignKey Items. the product or service being estimated. 2.estimate -> ForeignKey Estimate. The parent estimate this item belongs to."
     },
     "numbers_app_historicalexportedfiles": {
       "columns": {
@@ -2699,7 +2723,8 @@ database_schema =  {
           "partially_utilized": "Partially Utilized"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "Represents a credit note issued to a customer, typically due to sales returns, post-sale discounts, or corrections in previously issued invoices. It can be used for refunds or applied as a payment against future 	invoices.Acts as a financial document to adjust or reverse charges on an invoice.Integrates with accounting (JournalEntry) and tracks utilization status (refunded, applied, etc.). RelationShips: . business -> ForeignKey Business. The business issuing the credit note. 2.journal_entry -> ForeignKey JournalEntry. Linked journal entry for accounting. 3.customer -> ForeignKey Party. The customer receiving the credit note. 4.sales_person -> ForeignKey SalesPerson. Sales representative associated with the transaction. 5.against_invoice -ForeignKey Invoice. The original invoice being credited. 6.created_by / updated_by User tracking for creation and updates. subtotal, discount, tax, total_amount: Standard credit note amount breakdown."
     },
     "numbers_app_creditnoteitems": {
       "columns": {
@@ -2725,7 +2750,8 @@ database_schema =  {
         "credit_note": "numbers_app_creditnote"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": ""
     },
     "numbers_app_historicaldebitnote": {
       "columns": {
@@ -2896,7 +2922,8 @@ database_schema =  {
           "partially_utilized": "Partially Utilized"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "Represents a vendor-related debit note in the accounting system, issued typically for purchase returns,post-purchase adjustments, or corrections.Used for reversing or adjusting vendor bills. Integrates tightly with taxation, accounting, and currency conversion. Supports detailed tracking of how the note is applied or refunded. Relationships: 1.business -> ForeignKey Business. Business to which the debit note belongs. 2.journal_entry -> ForeignKey JournalEntry. Associated journal entry for accounting linkage. 3.vendor -> ForeignKey Party. Vendor to whom the debit note is issued. 4.against_bill -> ForeignKey Bill. Original bill the debit note is issued against. 5.created_by / updated_by -> User. Tracks user activity on record creation/update."
     },
     "numbers_app_debitnoteitems": {
       "columns": {
@@ -2922,7 +2949,8 @@ database_schema =  {
         "debit_note": "numbers_app_debitnote"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "Represents individual item-level details associated with a vendor Debit Note, including quantity, rate, taxes, and discounts. Used to capture granular breakdown of a debit note for accounting and tax purposes. Supports both fixed and percentage discounts per item. Relationships: 1. item -> ForeignKey Items. The specific item included in the debit note. 2. expense_category -> ForeignKey ChartofAccount. Chart of account for categorizing the item."
     },
     "numbers_app_refundpayment": {
       "columns": {
@@ -3110,7 +3138,8 @@ database_schema =  {
           "partially_invoiced": "Partially Invoiced"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "This model stores the individual items listed in a delivery challan. Each record represents a specific item being delivered as part of a larger delivery document (DeliveryChallan). To record detailed item-level information for each delivery challan.Helps in tracking what exactly was sent in the delivery (item, quantity, rate, tax, etc.). Relationships: 1.item -> ForeignKey Item. the actual product/item being delivered. 2.delivery_challan -> ForeignKey DeliveryChallan. the parent delivery challan this item belongs to. Useful for managing itemized delivery data for inventory, tracking, and legal purposes."
     },
     "numbers_app_deliverychallanitems": {
       "columns": {
@@ -3346,7 +3375,8 @@ database_schema =  {
           "no_tax": "No Tax"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "This model tracks business expenses such as purchases, vendor payments, or billable costs. It captures all related information like the vendor, customer, tax, currency, and payment source.To record and manage expenses incurred by the business.Supports both billable and non-billable expenses. Handles tax details (CGST, SGST, IGST) and supports GST compliance.Can be linked to invoices and journal entries. Relationship: 1.business -> ForeignKey Business. the company to which the expense belongs. 2.vendor -> ForeignKey Party.  the party from whom goods/services were purchased. 3.customer  -> ForeignKey Customer. linked if the expense is billable to a customer. 4.invoice -> ForeignKey Invoice. optional invoice related to this expense. 5.journal_entry -> ForeignKey JournalEntry  connects to the accounting journal entry. 6.paid_through_account -> ForeignKey ChartofAccount. account used to pay the expense (from Chart of Accounts) 7.recurring_expense -> ForeignKey RecurringInvoice.  links to a parent recurring expense entry, if applicable."
     },
     "numbers_app_expenseaccount": {
       "columns": {
@@ -3364,7 +3394,8 @@ database_schema =  {
         "tax": "numbers_app_tax"
       },
       "choices": {},
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "This model captures account-wise breakdowns of an expense. It is used when a single expense is split 	across different accounts or categories for accounting and tax purposes. To allocate an expense to a specific Chart of Account. Allows tax tracking and classification using HSN/SAC codes.Supports multi-	account allocation for a single expense.When an expense needs to be categorized into different accounts.For accurate financial reporting and GST compliance.Useful in multi-line expenses (e.g.,partial amounts for office rent, utilities, etc.). Relationships: 1. expense  -> ForeignKey Expense. expense – links to the main Expense record this account line belongs to. 2.account  -> ForeignKey ChartofAccount .the specific ChartofAccount used for the expense. 3.tax applied tax on this particular account line (optional)."
     },
     "numbers_app_businesspreference": {
       "columns": {
@@ -3589,7 +3620,8 @@ database_schema =  {
           "create_and_save": "Create and save"
         }
       },
-      "inferred_relationships": {}
+      "inferred_relationships": {},
+      "description": "The RecurringExpense model is used to define and manage automated, repeatable expense entries in the system. It schedules expenses to recur at a set frequency (e.g., monthly rent, utility bills). Relationships: 1.business →ForeignKey Business. Ties the expense to a business entity 2.vendor →ForeignKey Party. The vendor (supplier) associated with the recurring expense 3.created_by, updated_by →ForeignKey User. Tracks who created or last modified the record"
     },
     "numbers_app_reportmapping": {
       "columns": {
