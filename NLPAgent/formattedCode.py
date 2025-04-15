@@ -748,10 +748,11 @@ def run_query(user_query):
 
 # sample_query = "how my sales in distributed across different customers?"
 # sample_query = "how is my sales performance in this quarter compared to the previous quarter?"
-# sample_query = "What are the income and expenses of the previous fiscal year by month for my business?"
-sample_query = "What is number of invoices created month by month in previous year for my business?"
+sample_query = "What are the income and expenses of the previous fiscal year by month for my business?"
+# sample_query = "What is number of invoices created month by month in previous year for my business?"
+# sample_query = "which tables have foreign key relations with the table numbers_app_invoiceitems?"
 
 
-# run_query(sample_query)
+run_query(sample_query)
 
 

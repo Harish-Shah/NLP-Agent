@@ -97,43 +97,6 @@ database_schema =  {
       "choices": {},
       "inferred_relationships": {}
     },
-    "numbers_app_historicalparentaccount": {
-      "columns": {
-        "id": "BigIntegerField",
-        "name": "CharField",
-        "account_type": "CharField",
-        "is_custom": "BooleanField",
-        "account_number": "CharField",
-        "meta_data": "JSONField",
-        "history_change_reason": "TextField",
-        "parent_account": "ForeignKey",
-        "business": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "parent_account": "numbers_app_parentaccount",
-        "business": "numbers_app_business",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "account_type": {
-          "ASSET": "Asset",
-          "LIABILITY": "Liability",
-          "INCOME": "Income",
-          "EXPENSE": "Expense",
-          "EQUITY": "Equity"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
-    },
     "numbers_app_parentaccount": {
       "columns": {
         "id": "BigAutoField",
@@ -160,31 +123,6 @@ database_schema =  {
       },
       "inferred_relationships": {},
       "description":"This model defines top-level financial account categories in a business’s chart of accounts. Relationships: 1.parent_account ForeignKey Allows accounts to be nested (tree structure) with Self-FK.2.business ForeignKey Indicates ownership of this account definition by a business."
-    },
-    "numbers_app_historicalaccount": {
-      "columns": {
-        "id": "BigIntegerField",
-        "name": "CharField",
-        "is_custom": "BooleanField",
-        "history_change_reason": "TextField",
-        "parent_account": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "parent_account": "numbers_app_parentaccount",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
     },
     "numbers_app_account": {
       "columns": {
@@ -644,90 +582,6 @@ database_schema =  {
       "choices": {},
       "inferred_relationships": {}
     },
-    "numbers_app_historicalparty": {
-      "columns": {
-        "id": "BigIntegerField",
-        "role": "CharField",
-        "party_type": "CharField",
-        "primary_contact_name": "CharField",
-        "company_name": "CharField",
-        "display_name": "CharField",
-        "email": "CharField",
-        "phone_number": "CharField",
-        "fax_number": "CharField",
-        "website": "CharField",
-        "PAN": "CharField",
-        "preferred_payment_method": "CharField",
-        "opening_balance": "DecimalField",
-        "opening_balance_transaction_type": "CharField",
-        "opening_balance_as_on_date": "DateTimeField",
-        "gstin": "CharField",
-        "tpin": "CharField",
-        "gst_registration_type": "CharField",
-        "other_details": "TextField",
-        "is_inactive": "BooleanField",
-        "is_tds_applicable": "BooleanField",
-        "note": "TextField",
-        "attachment": "TextField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "meta_data": "JSONField",
-        "history_change_reason": "TextField",
-        "currency": "ForeignKey",
-        "payment_term": "ForeignKey",
-        "billing_address": "ForeignKey",
-        "shipping_address": "ForeignKey",
-        "account": "ForeignKey",
-        "business": "ForeignKey",
-        "opening_balance_journal_entry": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "currency": "numbers_app_currency",
-        "payment_term": "numbers_app_paymentterms",
-        "billing_address": "numbers_app_partyaddress",
-        "shipping_address": "numbers_app_partyaddress",
-        "account": "numbers_app_chartofaccount",
-        "business": "numbers_app_business",
-        "opening_balance_journal_entry": "numbers_app_journalentry",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "role": {
-          "customer": "customer",
-          "vendor": "vendor"
-        },
-        "party_type": {
-          "business": "Business",
-          "individual": "Individual"
-        },
-        "preferred_payment_method": {
-          "cash": "Cash",
-          "bank_transfer": "Bank Transfer",
-          "cheque": "Cheque",
-          "upi": "UPI",
-          "card": "Card",
-          "net_banking": "Net Banking"
-        },
-        "opening_balance_transaction_type": {
-          "CREDIT": "CREDIT",
-          "DEBIT": "DEBIT"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
-    },
     "numbers_app_party": {
       "columns": {
         "id": "BigAutoField",
@@ -945,45 +799,6 @@ database_schema =  {
       "choices": {},
       "inferred_relationships": {}
     },
-    "numbers_app_historicaltax": {
-      "columns": {
-        "id": "BigIntegerField",
-        "tax_type": "CharField",
-        "rate": "DecimalField",
-        "name": "CharField",
-        "is_custom": "BooleanField",
-        "is_removed": "BooleanField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "tax_type": {
-          "GST": "GST",
-          "IGST": "IGST",
-          "CESS": "CESS"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
-    },
     "numbers_app_tax": {
       "columns": {
         "id": "BigAutoField",
@@ -1008,70 +823,6 @@ database_schema =  {
           "GST": "GST",
           "IGST": "IGST",
           "CESS": "CESS"
-        }
-      },
-      "inferred_relationships": {}
-    },
-    "numbers_app_historicalitems": {
-      "columns": {
-        "id": "BigIntegerField",
-        "item_type": "CharField",
-        "name": "CharField",
-        "description": "TextField",
-        "for_purchase": "BooleanField",
-        "for_sales": "BooleanField",
-        "is_purchase_inclusive": "BooleanField",
-        "is_sales_inclusive": "BooleanField",
-        "hsn_sac_code": "CharField",
-        "cost_price": "DecimalField",
-        "selling_price": "DecimalField",
-        "gst_rate": "DecimalField",
-        "cess_rate": "DecimalField",
-        "opening_stock": "DecimalField",
-        "current_stock": "DecimalField",
-        "as_of_date": "DateTimeField",
-        "is_low_stock_reminder_active": "BooleanField",
-        "low_stock_value": "DecimalField",
-        "stock_item_code": "CharField",
-        "is_removed": "BooleanField",
-        "attachment": "TextField",
-        "is_low_stock_reminder_sent": "BooleanField",
-        "is_negative_stock_reminder_sent": "BooleanField",
-        "meta_data": "JSONField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "history_change_reason": "TextField",
-        "unit": "ForeignKey",
-        "purchase_account": "ForeignKey",
-        "sales_account": "ForeignKey",
-        "tax": "ForeignKey",
-        "business": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "unit": "numbers_app_units",
-        "purchase_account": "numbers_app_chartofaccount",
-        "sales_account": "numbers_app_chartofaccount",
-        "tax": "numbers_app_tax",
-        "business": "numbers_app_business",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "item_type": {
-          "goods": "Goods",
-          "service": "Service"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
         }
       },
       "inferred_relationships": {}
@@ -1129,41 +880,6 @@ database_schema =  {
       },
       "inferred_relationships": {},
       "description": "The Items model represents products or services available for purchase, sale, or inventory management 	within a business. It supports detailed tracking of pricing, taxation, stock levels, and classification. Sales or 	purchase invoices. Inventory and stock tracking. Tax-inclusive/inventory alert systems. Relationships: 1.business →ForeignKey Business. Business to which this item belongs 2.purchase_account, sales_account →ForeignKey ChartofAccount. Linked accounts for purchase/sales transactions 3.created_by, updated_by  →ForeignKey User. User audit tracking"
-    },
-    "numbers_app_historicalitemstockadjustment": {
-      "columns": {
-        "id": "BigIntegerField",
-        "is_stock_in": "BooleanField",
-        "reason": "TextField",
-        "adjustment_date": "DateTimeField",
-        "stock_adjustment_value": "DecimalField",
-        "is_removed": "BooleanField",
-        "is_manual": "BooleanField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "history_change_reason": "TextField",
-        "item": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "item": "numbers_app_items",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
     },
     "numbers_app_itemstockadjustment": {
       "columns": {
@@ -1237,61 +953,6 @@ database_schema =  {
       "inferred_relationships": {},
       "description": "Represents a sales representative associated with a specific business, primarily used for tracking sales activities or assignments. Assigning sales reps to customers, invoices, or deals. Tracking sales performance or lead ownership. Email communication with sales contacts Relationships: 1.business →ForeignKey Business. Links the salesperson to a specific business entity"
     },
-    "numbers_app_historicalrecurringinvoice": {
-      "columns": {
-        "profile_name": "CharField",
-        "repeat_every": "IntegerField",
-        "repeat_frequency": "CharField",
-        "preference": "CharField",
-        "invoice_data": "JSONField",
-        "attachment": "TextField",
-        "starts_on": "DateTimeField",
-        "ends_on": "DateTimeField",
-        "never_expires": "BooleanField",
-        "is_active": "BooleanField",
-        "is_removed": "BooleanField",
-        "last_run_at": "DateTimeField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "customer": "ForeignKey",
-        "periodic_task": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "customer": "numbers_app_party",
-        "periodic_task": "django_celery_beat_periodictask",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "repeat_frequency": {
-          "day": "Day(s)",
-          "week": "Week(s)",
-          "month": "Month(s)",
-          "year": "Year(s)"
-        },
-        "preference": {
-          "create_and_draft": "Create Invoices as Drafts",
-          "create_and_send": "Create and Send Invoices",
-          "create_and_save": "Create and save"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
-    },
     "numbers_app_recurringinvoice": {
       "columns": {
         "business": "ForeignKey",
@@ -1336,106 +997,6 @@ database_schema =  {
       },
       "inferred_relationships": {},
       "description": "This model defines automated, repeating invoices for customers based on a schedule.Manages invoice 	templates that generate recurring invoices.Stores frequency, schedule, and preferences for automated 	billing.Tracks lifecycle (start, end, status) and history of recurring invoices. Relationships: 1.business -> ForeignKey Business. the owning business. 2.customer  -> ForeignKey Customer. the recipient party."
-    },
-    "numbers_app_historicalinvoice": {
-      "columns": {
-        "id": "BigIntegerField",
-        "business_address": "JSONField",
-        "invoice_title": "CharField",
-        "invoice_sub_heading": "CharField",
-        "customer_emails": "JSONField",
-        "invoice_number": "CharField",
-        "invoice_date": "DateTimeField",
-        "due_date": "DateTimeField",
-        "order_number": "CharField",
-        "place_of_supply": "JSONField",
-        "tax_applied": "CharField",
-        "payment_status": "CharField",
-        "payment_method": "CharField",
-        "received_payment_amount": "DecimalField",
-        "last_payment_date": "DateTimeField",
-        "shipping_address": "TextField",
-        "billing_address": "TextField",
-        "attachment": "TextField",
-        "note": "TextField",
-        "subtotal": "DecimalField",
-        "discount": "DecimalField",
-        "tds_tcs_choice": "CharField",
-        "tds_tcs_amount": "DecimalField",
-        "tax": "JSONField",
-        "total_amount": "DecimalField",
-        "is_draft": "BooleanField",
-        "is_pro_forma": "BooleanField",
-        "is_sent": "BooleanField",
-        "is_pro_forma_sent": "BooleanField",
-        "is_removed": "BooleanField",
-        "reason_for_update": "TextField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "exchange_rate": "DecimalField",
-        "is_recurring": "BooleanField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "journal_entry": "ForeignKey",
-        "customer": "ForeignKey",
-        "payment_term": "ForeignKey",
-        "sales_person": "ForeignKey",
-        "terms_and_conditions": "ForeignKey",
-        "tds_tcs": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "currency": "ForeignKey",
-        "recurring_invoice": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "journal_entry": "numbers_app_journalentry",
-        "customer": "numbers_app_party",
-        "payment_term": "numbers_app_paymentterms",
-        "sales_person": "numbers_app_salesperson",
-        "terms_and_conditions": "numbers_app_termsandconditions",
-        "tds_tcs": "numbers_app_tdstcsdetails",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "currency": "numbers_app_currency",
-        "recurring_invoice": "numbers_app_recurringinvoice",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "tax_applied": {
-          "inclusive": "Inclusive",
-          "exclusive": "Exclusive",
-          "no_tax": "No Tax"
-        },
-        "payment_status": {
-          "paid": "Paid",
-          "unpaid": "Unpaid",
-          "partially_paid": "Partially Paid"
-        },
-        "payment_method": {
-          "cash": "Cash",
-          "bank_transfer": "Bank Transfer",
-          "cheque": "Cheque",
-          "upi": "UPI",
-          "card": "Card",
-          "net_banking": "Net Banking"
-        },
-        "tds_tcs_choice": {
-          "tds": "TDS",
-          "tcs": "TCS",
-          "no_tax": "No Tax"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
     },
     "numbers_app_invoice": {
       "columns": {
@@ -1623,95 +1184,6 @@ database_schema =  {
       },
       "inferred_relationships": {}
     },
-    "numbers_app_historicalbill": {
-      "columns": {
-        "id": "BigIntegerField",
-        "business_address": "JSONField",
-        "bill_title": "CharField",
-        "bill_sub_heading": "CharField",
-        "order_number": "CharField",
-        "bill_number": "CharField",
-        "bill_date": "DateTimeField",
-        "due_date": "DateTimeField",
-        "source_of_supply": "JSONField",
-        "tax_applied": "CharField",
-        "payment_status": "CharField",
-        "payment_method": "CharField",
-        "paid_payment_amount": "DecimalField",
-        "last_payment_date": "DateTimeField",
-        "mailing_address": "TextField",
-        "attachment": "TextField",
-        "note": "TextField",
-        "subtotal": "DecimalField",
-        "discount": "DecimalField",
-        "tax": "JSONField",
-        "tds_tcs_choice": "CharField",
-        "tds_tcs_amount": "DecimalField",
-        "total_amount": "DecimalField",
-        "is_draft": "BooleanField",
-        "is_removed": "BooleanField",
-        "has_rcm": "BooleanField",
-        "reason_for_update": "TextField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "exchange_rate": "DecimalField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "journal_entry": "ForeignKey",
-        "vendor": "ForeignKey",
-        "payment_term": "ForeignKey",
-        "tds_tcs": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "currency": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "journal_entry": "numbers_app_journalentry",
-        "vendor": "numbers_app_party",
-        "payment_term": "numbers_app_paymentterms",
-        "tds_tcs": "numbers_app_tdstcsdetails",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "currency": "numbers_app_currency",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "tax_applied": {
-          "inclusive": "Inclusive",
-          "exclusive": "Exclusive",
-          "no_tax": "No Tax"
-        },
-        "payment_status": {
-          "paid": "Paid",
-          "unpaid": "Unpaid",
-          "partially_paid": "Partially Paid"
-        },
-        "payment_method": {
-          "cash": "Cash",
-          "bank_transfer": "Bank Transfer",
-          "cheque": "Cheque",
-          "upi": "UPI",
-          "card": "Card",
-          "net_banking": "Net Banking"
-        },
-        "tds_tcs_choice": {
-          "tds": "TDS",
-          "tcs": "TCS",
-          "no_tax": "No Tax"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
-    },
     "numbers_app_bill": {
       "columns": {
         "id": "BigAutoField",
@@ -1850,74 +1322,6 @@ database_schema =  {
       "choices": {},
       "inferred_relationships": {}
     },
-    "numbers_app_historicalsalesorder": {
-      "columns": {
-        "id": "BigIntegerField",
-        "business_address": "JSONField",
-        "customer_emails": "JSONField",
-        "sales_order_number": "CharField",
-        "sales_order_date": "DateTimeField",
-        "expected_shipment_date": "DateTimeField",
-        "reference_number": "CharField",
-        "place_of_supply": "JSONField",
-        "tax_applied": "CharField",
-        "shipping_address": "TextField",
-        "billing_address": "TextField",
-        "delivery_method": "CharField",
-        "attachment": "TextField",
-        "note": "TextField",
-        "subtotal": "DecimalField",
-        "discount": "DecimalField",
-        "tax": "JSONField",
-        "total_amount": "DecimalField",
-        "is_draft": "BooleanField",
-        "is_sent": "BooleanField",
-        "is_removed": "BooleanField",
-        "is_converted_to_invoice": "BooleanField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "exchange_rate": "DecimalField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "customer": "ForeignKey",
-        "payment_term": "ForeignKey",
-        "sales_person": "ForeignKey",
-        "terms_and_conditions": "ForeignKey",
-        "invoice": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "currency": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "customer": "numbers_app_party",
-        "payment_term": "numbers_app_paymentterms",
-        "sales_person": "numbers_app_salesperson",
-        "terms_and_conditions": "numbers_app_termsandconditions",
-        "invoice": "numbers_app_invoice",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "currency": "numbers_app_currency",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "tax_applied": {
-          "inclusive": "Inclusive",
-          "exclusive": "Exclusive",
-          "no_tax": "No Tax"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
-    },
     "numbers_app_salesorder": {
       "columns": {
         "id": "BigAutoField",
@@ -2001,71 +1405,6 @@ database_schema =  {
       "inferred_relationships": {},
       "description": "Represents individual line items listed in a SalesOrder. Each instance corresponds to a specific product/service ordered by the customer. Tracks the items and associated details in a sales order. Relationships: 1.item → ForeignKey Item. the product or service being ordered. 2.sales_order →ForeignKey SalesOrder. parent order to which this item belongs."
     },
-    "numbers_app_historicalpurchaseorder": {
-      "columns": {
-        "id": "BigIntegerField",
-        "business_address": "JSONField",
-        "vendor_emails": "JSONField",
-        "purchase_order_number": "CharField",
-        "purchase_order_date": "DateTimeField",
-        "expected_delivery_date": "DateTimeField",
-        "reference_number": "CharField",
-        "source_of_supply": "JSONField",
-        "tax_applied": "CharField",
-        "mailing_address": "TextField",
-        "shipment_preference": "CharField",
-        "attachment": "TextField",
-        "note": "TextField",
-        "subtotal": "DecimalField",
-        "discount": "DecimalField",
-        "tax": "JSONField",
-        "total_amount": "DecimalField",
-        "is_draft": "BooleanField",
-        "is_sent": "BooleanField",
-        "is_removed": "BooleanField",
-        "is_converted_to_bill": "BooleanField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "exchange_rate": "DecimalField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "vendor": "ForeignKey",
-        "payment_term": "ForeignKey",
-        "terms_and_conditions": "ForeignKey",
-        "bill": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "currency": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "vendor": "numbers_app_party",
-        "payment_term": "numbers_app_paymentterms",
-        "terms_and_conditions": "numbers_app_termsandconditions",
-        "bill": "numbers_app_bill",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "currency": "numbers_app_currency",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "tax_applied": {
-          "inclusive": "Inclusive",
-          "exclusive": "Exclusive",
-          "no_tax": "No Tax"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
-    },
     "numbers_app_purchaseorder": {
       "columns": {
         "id": "BigAutoField",
@@ -2147,77 +1486,6 @@ database_schema =  {
       "choices": {},
       "inferred_relationships": {},
       "description": "The PurchaseOrderItems model represents individual line items in a PurchaseOrder. Each entry corresponds to one item ordered from a vendor, including pricing, tax, quantity, and discount information. Relationships: 1.purchase_order →ForeignKey PurchaseOrder. Links this item to a specific purchase order 2.item →ForeignKey Items. The product or service being ordered 3.expense_category →ForeignKey ChartofAccount. Accounting category for the expense"
-    },
-    "numbers_app_historicalpayment": {
-      "columns": {
-        "id": "BigIntegerField",
-        "payment_type": "CharField",
-        "payment_method": "CharField",
-        "payment_date": "DateTimeField",
-        "reference": "CharField",
-        "total_amount": "DecimalField",
-        "total_payment_amount": "DecimalField",
-        "balance_amount": "DecimalField",
-        "refunded_amount": "DecimalField",
-        "note": "TextField",
-        "attachment": "TextField",
-        "is_sent": "BooleanField",
-        "is_removed": "BooleanField",
-        "exchange_rate": "DecimalField",
-        "is_tds_applicable": "BooleanField",
-        "has_rcm": "BooleanField",
-        "is_advance": "BooleanField",
-        "tax_summary": "JSONField",
-        "place_of_supply": "JSONField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "journal_entry": "ForeignKey",
-        "party": "ForeignKey",
-        "account": "ForeignKey",
-        "tds_account": "ForeignKey",
-        "currency": "ForeignKey",
-        "tax": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "journal_entry": "numbers_app_journalentry",
-        "party": "numbers_app_party",
-        "account": "numbers_app_chartofaccount",
-        "tds_account": "numbers_app_chartofaccount",
-        "currency": "numbers_app_currency",
-        "tax": "numbers_app_tax",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "payment_type": {
-          "receive": "Receive",
-          "pay": "Pay"
-        },
-        "payment_method": {
-          "cash": "Cash",
-          "bank_transfer": "Bank Transfer",
-          "cheque": "Cheque",
-          "upi": "UPI",
-          "card": "Card",
-          "net_banking": "Net Banking"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
     },
     "numbers_app_payment": {
       "columns": {
@@ -2322,74 +1590,6 @@ database_schema =  {
       "choices": {},
       "inferred_relationships": {}
     },
-    "numbers_app_historicalestimate": {
-      "columns": {
-        "id": "BigIntegerField",
-        "business_address": "JSONField",
-        "customer_emails": "JSONField",
-        "estimate_number": "CharField",
-        "estimate_date": "DateTimeField",
-        "expiry_date": "DateTimeField",
-        "reference_number": "CharField",
-        "place_of_supply": "JSONField",
-        "tax_applied": "CharField",
-        "shipping_address": "TextField",
-        "billing_address": "TextField",
-        "attachment": "TextField",
-        "note": "TextField",
-        "subtotal": "DecimalField",
-        "discount": "DecimalField",
-        "tax": "JSONField",
-        "total_amount": "DecimalField",
-        "is_draft": "BooleanField",
-        "is_sent": "BooleanField",
-        "is_removed": "BooleanField",
-        "is_converted_to_invoice": "BooleanField",
-        "is_converted_to_sales_order": "BooleanField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "exchange_rate": "DecimalField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "customer": "ForeignKey",
-        "sales_person": "ForeignKey",
-        "terms_and_conditions": "ForeignKey",
-        "invoice": "ForeignKey",
-        "sales_order": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "currency": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "customer": "numbers_app_party",
-        "sales_person": "numbers_app_salesperson",
-        "terms_and_conditions": "numbers_app_termsandconditions",
-        "invoice": "numbers_app_invoice",
-        "sales_order": "numbers_app_salesorder",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "currency": "numbers_app_currency",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "tax_applied": {
-          "inclusive": "Inclusive",
-          "exclusive": "Exclusive",
-          "no_tax": "No Tax"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
-    },
     "numbers_app_estimate": {
       "columns": {
         "id": "BigAutoField",
@@ -2473,50 +1673,6 @@ database_schema =  {
       "inferred_relationships": {},
       "description": "This model represents the individual items listed in a sales estimate. It stores details like the item, quantity, rate, tax, discount, and total amount. Used for calculating the total value of the estimate. Provides detailed breakdowns for customer visibility and record-keeping.Whenever an estimate is created, EstimateItems are added to list all included products/services. Relationships: 1.item -> ForeignKey Items. the product or service being estimated. 2.estimate -> ForeignKey Estimate. The parent estimate this item belongs to."
     },
-    "numbers_app_historicalexportedfiles": {
-      "columns": {
-        "id": "BigIntegerField",
-        "description": "CharField",
-        "document": "TextField",
-        "document_type": "CharField",
-        "durations_start_date": "DateTimeField",
-        "duration_end_date": "DateTimeField",
-        "meta_data": "JSONField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "document_type": {
-          "report": "Report",
-          "profit_and_loss": "Profit and Loss",
-          "balance_sheet": "Balance Sheet",
-          "cash_flow": "Cash Flow",
-          "customer_statement": "Customer Statement",
-          "vendor_statement": "Vender Statement",
-          "account_statement": "Account statement"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
-    },
     "numbers_app_exportedfiles": {
       "columns": {
         "id": "BigAutoField",
@@ -2546,99 +1702,6 @@ database_schema =  {
           "customer_statement": "Customer Statement",
           "vendor_statement": "Vender Statement",
           "account_statement": "Account statement"
-        }
-      },
-      "inferred_relationships": {}
-    },
-    "numbers_app_historicalcreditnote": {
-      "columns": {
-        "id": "BigIntegerField",
-        "business_address": "JSONField",
-        "customer_emails": "JSONField",
-        "credit_note_number": "CharField",
-        "credit_note_date": "DateTimeField",
-        "place_of_supply": "JSONField",
-        "tax_applied": "CharField",
-        "reason": "CharField",
-        "against_invoice_type": "CharField",
-        "credit_utilization_status": "CharField",
-        "refunded_amount": "DecimalField",
-        "applied_as_payment_amount": "DecimalField",
-        "last_credit_utilization_date": "DateTimeField",
-        "shipping_address": "TextField",
-        "billing_address": "TextField",
-        "note": "TextField",
-        "subtotal": "DecimalField",
-        "discount": "DecimalField",
-        "tax": "JSONField",
-        "total_amount": "DecimalField",
-        "is_draft": "BooleanField",
-        "is_sent": "BooleanField",
-        "is_removed": "BooleanField",
-        "reason_for_update": "TextField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "exchange_rate": "DecimalField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "journal_entry": "ForeignKey",
-        "customer": "ForeignKey",
-        "sales_person": "ForeignKey",
-        "terms_and_conditions": "ForeignKey",
-        "against_invoice": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "currency": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "journal_entry": "numbers_app_journalentry",
-        "customer": "numbers_app_party",
-        "sales_person": "numbers_app_salesperson",
-        "terms_and_conditions": "numbers_app_termsandconditions",
-        "against_invoice": "numbers_app_invoice",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "currency": "numbers_app_currency",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "tax_applied": {
-          "inclusive": "Inclusive",
-          "exclusive": "Exclusive",
-          "no_tax": "No Tax"
-        },
-        "reason": {
-          "sales_return": "Sales Return",
-          "post_sale_discount": "Post Sale Discount",
-          "deficiency_in_service": "Deficiency in Service",
-          "correction_in_invoice": "Correction in Invoice",
-          "change_in_pos": "Change in POS",
-          "finalization_of_provisional_assessment": "Finalization of Provisional Assessment",
-          "other": "Other"
-        },
-        "against_invoice_type": {
-          "gst_registered_regular": "GST registered- Regular",
-          "gst_registered_composition": "GST registered- Composition",
-          "gst_unregistered": "GST unregistered",
-          "consumer": "Consumer",
-          "overseas": "Overseas",
-          "sez": "SEZ",
-          "deemed_exports": "Deemed exports- EOU's, STP's, EHTP's etc"
-        },
-        "credit_utilization_status": {
-          "utilized": "Utilized",
-          "unutilized": "Unutilized",
-          "partially_utilized": "Partially Utilized"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
         }
       },
       "inferred_relationships": {}
@@ -2752,97 +1815,6 @@ database_schema =  {
       "choices": {},
       "inferred_relationships": {},
       "description": ""
-    },
-    "numbers_app_historicaldebitnote": {
-      "columns": {
-        "id": "BigIntegerField",
-        "business_address": "JSONField",
-        "vendor_emails": "JSONField",
-        "debit_note_number": "CharField",
-        "debit_note_date": "DateTimeField",
-        "source_of_supply": "JSONField",
-        "tax_applied": "CharField",
-        "reason": "CharField",
-        "against_bill_type": "CharField",
-        "credit_utilization_status": "CharField",
-        "refunded_amount": "DecimalField",
-        "applied_as_payment_amount": "DecimalField",
-        "last_credit_utilization_date": "DateTimeField",
-        "mailing_address": "TextField",
-        "note": "TextField",
-        "subtotal": "DecimalField",
-        "discount": "DecimalField",
-        "tax": "JSONField",
-        "has_rcm": "BooleanField",
-        "total_amount": "DecimalField",
-        "is_draft": "BooleanField",
-        "is_sent": "BooleanField",
-        "is_removed": "BooleanField",
-        "reason_for_update": "TextField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "exchange_rate": "DecimalField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "journal_entry": "ForeignKey",
-        "vendor": "ForeignKey",
-        "terms_and_conditions": "ForeignKey",
-        "against_bill": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "currency": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "journal_entry": "numbers_app_journalentry",
-        "vendor": "numbers_app_party",
-        "terms_and_conditions": "numbers_app_termsandconditions",
-        "against_bill": "numbers_app_bill",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "currency": "numbers_app_currency",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "tax_applied": {
-          "inclusive": "Inclusive",
-          "exclusive": "Exclusive",
-          "no_tax": "No Tax"
-        },
-        "reason": {
-          "purchase_return": "Purchase Return",
-          "post_purchase_discount": "Post Purchase Discount",
-          "deficiency_in_service": "Deficiency in Service",
-          "correction_in_bill": "Correction in Bill",
-          "change_in_pos": "Change in POS",
-          "finalization_of_provisional_assessment": "Finalization of Provisional Assessment",
-          "other": "Other"
-        },
-        "against_bill_type": {
-          "gst_registered_regular": "GST registered- Regular",
-          "gst_registered_composition": "GST registered- Composition",
-          "gst_unregistered": "GST unregistered",
-          "consumer": "Consumer",
-          "overseas": "Overseas",
-          "sez": "SEZ",
-          "deemed_exports": "Deemed exports- EOU's, STP's, EHTP's etc"
-        },
-        "credit_utilization_status": {
-          "utilized": "Utilized",
-          "unutilized": "Unutilized",
-          "partially_utilized": "Partially Utilized"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
     },
     "numbers_app_debitnote": {
       "columns": {
@@ -2999,80 +1971,6 @@ database_schema =  {
           "upi": "UPI",
           "card": "Card",
           "net_banking": "Net Banking"
-        }
-      },
-      "inferred_relationships": {}
-    },
-    "numbers_app_historicaldeliverychallan": {
-      "columns": {
-        "id": "BigIntegerField",
-        "business_address": "JSONField",
-        "delivery_challan_number": "CharField",
-        "delivery_challan_date": "DateTimeField",
-        "reference_number": "CharField",
-        "place_of_supply": "JSONField",
-        "tax_applied": "CharField",
-        "shipping_address": "TextField",
-        "billing_address": "TextField",
-        "challan_type": "CharField",
-        "attachment": "TextField",
-        "note": "TextField",
-        "subtotal": "DecimalField",
-        "discount": "DecimalField",
-        "tax": "JSONField",
-        "total_amount": "DecimalField",
-        "is_draft": "BooleanField",
-        "is_delivered": "BooleanField",
-        "is_returned": "BooleanField",
-        "is_removed": "BooleanField",
-        "invoiced_status": "CharField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "exchange_rate": "DecimalField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "customer": "ForeignKey",
-        "terms_and_conditions": "ForeignKey",
-        "invoice": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "currency": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "customer": "numbers_app_party",
-        "terms_and_conditions": "numbers_app_termsandconditions",
-        "invoice": "numbers_app_invoice",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "currency": "numbers_app_currency",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "tax_applied": {
-          "inclusive": "Inclusive",
-          "exclusive": "Exclusive",
-          "no_tax": "No Tax"
-        },
-        "challan_type": {
-          "supply_of_liquid_gas": "Supply of Liquid Gas",
-          "job_work": "Job Work",
-          "supply_on_approval": "Supply on Approval",
-          "others": "Others"
-        },
-        "invoiced_status": {
-          "not_invoiced": "Not Invoiced",
-          "invoiced": "Invoiced",
-          "partially_invoiced": "Partially Invoiced"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
         }
       },
       "inferred_relationships": {}
@@ -3252,72 +2150,6 @@ database_schema =  {
         "relative_due": {
           "before": "BEFORE",
           "after": "AFTER"
-        }
-      },
-      "inferred_relationships": {}
-    },
-    "numbers_app_historicalexpense": {
-      "columns": {
-        "id": "BigIntegerField",
-        "expense_date": "DateTimeField",
-        "expense_type": "CharField",
-        "exchange_rate": "DecimalField",
-        "source_of_supply": "JSONField",
-        "destination_of_supply": "JSONField",
-        "gst_registration_type": "CharField",
-        "gstin_number": "CharField",
-        "reference_invoice_number": "CharField",
-        "tax_applied": "CharField",
-        "subtotal": "DecimalField",
-        "tax": "JSONField",
-        "total_amount": "DecimalField",
-        "attachment": "TextField",
-        "has_rcm": "BooleanField",
-        "is_billable": "BooleanField",
-        "mark_up_percent": "DecimalField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "is_recurring": "BooleanField",
-        "history_change_reason": "TextField",
-        "is_removed": "BooleanField",
-        "business": "ForeignKey",
-        "vendor": "ForeignKey",
-        "customer": "ForeignKey",
-        "journal_entry": "ForeignKey",
-        "paid_through_account": "ForeignKey",
-        "currency": "ForeignKey",
-        "invoice": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "recurring_expense": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "vendor": "numbers_app_party",
-        "customer": "numbers_app_party",
-        "journal_entry": "numbers_app_journalentry",
-        "paid_through_account": "numbers_app_chartofaccount",
-        "currency": "numbers_app_currency",
-        "invoice": "numbers_app_invoice",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "recurring_expense": "numbers_app_recurringexpense",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "tax_applied": {
-          "inclusive": "Inclusive",
-          "exclusive": "Exclusive",
-          "no_tax": "No Tax"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
         }
       },
       "inferred_relationships": {}
@@ -3523,61 +2355,6 @@ database_schema =  {
       },
       "inferred_relationships": {}
     },
-    "numbers_app_historicalrecurringexpense": {
-      "columns": {
-        "profile_name": "CharField",
-        "repeat_every": "IntegerField",
-        "repeat_frequency": "CharField",
-        "preference": "CharField",
-        "expense_data": "JSONField",
-        "attachment": "TextField",
-        "starts_on": "DateTimeField",
-        "ends_on": "DateTimeField",
-        "never_expires": "BooleanField",
-        "is_active": "BooleanField",
-        "is_removed": "BooleanField",
-        "last_run_at": "DateTimeField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "vendor": "ForeignKey",
-        "periodic_task": "ForeignKey",
-        "created_by": "ForeignKey",
-        "updated_by": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "vendor": "numbers_app_party",
-        "periodic_task": "django_celery_beat_periodictask",
-        "created_by": "numbers_app_user",
-        "updated_by": "numbers_app_user",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "repeat_frequency": {
-          "day": "Day(s)",
-          "week": "Week(s)",
-          "month": "Month(s)",
-          "year": "Year(s)"
-        },
-        "preference": {
-          "create_and_draft": "Create Invoices as Drafts",
-          "create_and_send": "Create and Send Invoices",
-          "create_and_save": "Create and save"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
-      "inferred_relationships": {}
-    },
     "numbers_app_recurringexpense": {
       "columns": {
         "business": "ForeignKey",
@@ -3645,38 +2422,6 @@ database_schema =  {
           "profit_and_loss": "Profit and Loss",
           "balance_sheet": "Balance Sheet",
           "cash_flow": "Cash Flow"
-        }
-      },
-      "inferred_relationships": {}
-    },
-    "numbers_app_historicalschedulereport": {
-      "columns": {
-        "repeat_frequency": "CharField",
-        "starts_on": "DateTimeField",
-        "report_data": "JSONField",
-        "is_active": "BooleanField",
-        "report_name": "CharField",
-        "last_runtime": "DateTimeField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "periodic_task": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "periodic_task": "django_celery_beat_periodictask",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
         }
       },
       "inferred_relationships": {}
@@ -3900,55 +2645,6 @@ database_schema =  {
         "inviter": "numbers_app_user"
       },
       "choices": {},
-      "inferred_relationships": {}
-    },
-    "numbers_app_historicaldocumentlinkdata": {
-      "columns": {
-        "id": "BigIntegerField",
-        "link_uid": "SlugField",
-        "document_type": "CharField",
-        "secure_by": "CharField",
-        "password": "CharField",
-        "document_id": "IntegerField",
-        "mobile_number": "CharField",
-        "email": "JSONField",
-        "is_restricted": "BooleanField",
-        "seen_count": "IntegerField",
-        "document_data": "JSONField",
-        "created_at": "DateTimeField",
-        "updated_at": "DateTimeField",
-        "history_change_reason": "TextField",
-        "business": "ForeignKey",
-        "history_id": "AutoField",
-        "history_date": "DateTimeField",
-        "history_type": "CharField",
-        "history_user": "ForeignKey"
-      },
-      "foreign_keys": {
-        "business": "numbers_app_business",
-        "history_user": "numbers_app_user"
-      },
-      "choices": {
-        "document_type": {
-          "invoice": "Invoice",
-          "sales_order": "Sales Order",
-          "purchase_order": "Purchase Order",
-          "credit_note": "Credit Note",
-          "debit_note": "Debit Note",
-          "estimate": "Estimate",
-          "payment": "Payment"
-        },
-        "secure_by": {
-          "otp": "Otp",
-          "password": "Password",
-          "input_validation": "Mobile or Email Input"
-        },
-        "history_type": {
-          "+": "Created",
-          "~": "Changed",
-          "-": "Deleted"
-        }
-      },
       "inferred_relationships": {}
     },
     "numbers_app_documentlinkdata": {
