@@ -1,7 +1,6 @@
 import os, getpass
 from typing import Any
 from langchain import hub
-from datetime import datetime
 from sqlalchemy import inspect
 from pydantic import BaseModel, Field
 from NLPAgent.constants import database_schema
@@ -14,17 +13,12 @@ from langchain_community.utilities import SQLDatabase
 from langchain_core.runnables.config import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-from langchain_huggingface import HuggingFaceEndpoint
-import torch
 
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = "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"
 
 def _set_env(var: str):
     if not os.environ.get(var):
         # os.environ[var] = getpass.getpass(f"{var}: ")
-        os.environ[var] = "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"
+        os.environ[var] = "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"
     #    os.environ["OPENAI_API_KEY"] = getpass.getpass("Enter API key for OpenAI: ")
 
 # Initialize embeddings model
@@ -171,6 +165,12 @@ def check_relevance(state: State):
         """)
     ]
 
+    # setting relevance manually to relevant
+    
+    state["relevance"] = "relevant"
+    print(f"Relevance determined: {state['relevance']}")
+    return state
+    
     structured_llm = model.with_structured_output(RelevanceOutput)
     result = structured_llm.invoke(messages)
     state["relevance"] = result.relevance
@@ -214,12 +214,12 @@ class QueryOutput(BaseModel):
 
 def generate_sql_query(state: State):
     """Generate SQL query to fetch information."""
-    # print(f"Converting question to SQL for user '{state['current_user']}' and business ID '{state['current_business']}': {state['user_query']}")
+    print(f"Converting question to SQL for user '{state['current_user']}' and business ID '{state['current_business']}': {state['user_query']}")
     # detailed_schema = get_database_schema(db)
     detailed_schema = database_schema
     
-        # Unless the user specifies in their question a specific number of examples they wish to obtain, always limit your query 
-        # to at most {10} results. You can order the results by a relevant column to return the most interesting examples in the database.
+    # Unless the user specifies in their question a specific number of examples they wish to obtain, always limit your query 
+    # to at most {10} results. You can order the results by a relevant column to return the most interesting examples in the database.
         
     # Modify the prompt to include both user and business context
     messages = [
@@ -270,7 +270,7 @@ def generate_sql_query(state: State):
                    - **Positive Value:** `transaction_type = 'DEBIT'`
                    - **Negative Value:** `transaction_type = 'CREDIT'` (subtract from total expenses)
             4. Filter transactions for the previous fiscal year using `date_trunc('year', NOW() - INTERVAL '1 year')`.
-            5. Group results by month (`date_trunc('month', transaction_date)`) and order them in descending order.
+            5. Group results by month (`date_trunc('month', transaction_date)`) and order them in ascending order.
             6. The query should be optimized for performance and avoid unnecessary joins.
             7. Query should consider company_name instead of name form numbers_app_party table
             
@@ -289,34 +289,27 @@ def generate_sql_query(state: State):
         When both user and business filters are applicable, make sure to include both conditions 
         (e.g., "WHERE user_id = X AND business_id = Y").
         
+        - For general queries, limit results to 10 unless the user specifies otherwise.
+        - Do **not** use LIMIT when retrieving full-year data or monthly breakdowns.
+
         ### Database Schema:
-        {detailed_schema} ###
+        The schema is structured as JSON with tables, columns, foreign keys, and **descriptions** that explain the purpose of each table. Use this human-readable description to choose the most appropriate tables and columns.
+        ```json
+        {detailed_schema}
         
         User Question: {state['user_query']}
+        
+        Check and make sure that all guidelines have been followed.
+        
         """)
     ]
-    # """**Output Type Handling:**
-    #          - If the user’s question requires a **chart-based output**, structure the SQL response accordingly.
-    #          - **Output Type: 'bar_chart'**
-    #            - On SQL query execution, **generate the response in JSON format**.
-    #            - Example output structure:
-    #              [
-    #                  {{ "income": income_amount,
-    #                     "expense": expense_amount,
-    #                     "start_date": month_name_and_year
-    #                  }},
-    #                  ...
-    #              ]
-    #
-    #            - Ensure the response correctly **aggregates income and expense data** by month.
-    #            - `start_date` should be formatted as `Month Year` (e.g., `"April 2024"`)."""
+
     structured_llm = model.with_structured_output(QueryOutput)
     result = structured_llm.invoke(messages)
     # print("QUERY RESULT=====>",result)
     state["sql_query"] = result.query
     print(f"Generated SQL query: {state['sql_query']}")
     return state
-
 
 
 # Node 4: Execute SQL Query
@@ -746,10 +739,10 @@ def run_query(user_query):
     
     return final_state
 
-# sample_query = "how my sales in distributed across different customers?"
+sample_query = "how my sales in distributed across different customers?"
 # sample_query = "how is my sales performance in this quarter compared to the previous quarter?"
-sample_query = "What are the income and expenses of the previous fiscal year by month for my business?"
-# sample_query = "What is number of invoices created month by month in previous year for my business?"
+# sample_query = "What are the income and expenses of the previous fiscal year by month for my business?"
+# sample_query = "what is total income in the previous month for business with id 198?"
 # sample_query = "which tables have foreign key relations with the table numbers_app_invoiceitems?"
 
 
