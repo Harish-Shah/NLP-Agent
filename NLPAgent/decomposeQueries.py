@@ -1,18 +1,15 @@
 import os, getpass
-from typing import Any
-from langchain import hub
+from typing import Any, List
 from sqlalchemy import inspect
 from pydantic import BaseModel, Field
+from langchain_openai import ChatOpenAI
 from NLPAgent.constants import database_schema
 from langchain_core.messages import HumanMessage
-from typing_extensions import Annotated, TypedDict, Literal
 from langgraph.graph import START, StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain_community.utilities import SQLDatabase
 from langchain_core.runnables.config import RunnableConfig
-from langchain_openai import ChatOpenAI
-from langchain.embeddings import OpenAIEmbeddings
+from typing_extensions import Annotated, TypedDict, Literal
 
 
 def _set_env(var: str):
@@ -21,9 +18,6 @@ def _set_env(var: str):
         os.environ[var] = "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"
     #    os.environ["OPENAI_API_KEY"] = getpass.getpass("Enter API key for OpenAI: ")
 
-# Initialize embeddings model
-# embedding_model = OpenAIEmbeddings()     
-
 _set_env("NVIDIA_API_KEY")
 # _set_env("OPENAI_API_KEY")
 
@@ -31,26 +25,31 @@ _set_env("NVIDIA_API_KEY")
 model = ChatNVIDIA(model="meta/llama-3.3-70b-instruct")
 # model = ChatOpenAI(openai_api_key=os.environ["OPENAI_API_KEY"], temperature=0.7, model="gpt-4o")
 db = SQLDatabase.from_uri("postgresql://anc2:admin@localhost:5432/finycsdb")
-query_prompt_template = hub.pull("langchain-ai/sql-query-system-prompt")
 
-# print("FINYCS DB==>", query_prompt_template)
+
+class SQLExecutionResult(TypedDict):
+    query: str                # the SQL string that was run
+    result: Any               # whatever db.run returned (string or rows)
+    error: bool               # did it throw an error?
+    error_message: str        # raw exception or empty if no error
 
 # state definition
+
 class State(TypedDict):
     user_query: str
-    sql_query: str
-    sql_query_result: str
-    query_rows: list
+    sql_queries: List[str]              # one SQL for each sub-question
+    sql_query_results: List[SQLExecutionResult]
+    query_rows: List[Any]               
     attempts: int
     relevance: str
     sql_error: bool
     readable_resp: Any
     chart_type: str
     output_format: str
-    formatted_chart_data : Any
+    formatted_chart_data: Any
     current_user: str
     current_business: int
-    requested_business_type : str
+    requested_business_type: str
 
 def get_database_schema(db):
     """
@@ -208,39 +207,69 @@ def unauthorized_data_access_message(state):
     return state
 
 # Node 3: Generate SQL Query
-class QueryOutput(BaseModel):
-    """Generated SQL query."""
-    query: str = Field(..., description="Syntactically valid SQL query.")
+class SubQuery(BaseModel):
+    question: str = Field(description="A simplified sub-question derived from the original complex question.")
+    query: str = Field(description="Syntactically valid SQL query that answers the sub-question.")
 
+class DecompositionResponse(BaseModel):
+    decomposition: List[SubQuery]
+    integration_plan: str
+
+# change name to decompose_and_generate_sql_queries
 def generate_sql_query(state: State):
-    """Generate SQL query to fetch information."""
-    print(f"Converting question to SQL for user '{state['current_user']}' and business ID '{state['current_business']}': {state['user_query']}")
-    # detailed_schema = get_database_schema(db)
-    detailed_schema = database_schema
-    
-    # Unless the user specifies in their question a specific number of examples they wish to obtain, always limit your query 
-    # to at most {10} results. You can order the results by a relevant column to return the most interesting examples in the database.
-        
-    # Modify the prompt to include both user and business context
+    """Break down a complex question into sub-questions and generate individual SQL queries for each."""
+    print("Decomposing complex question and generating sub-queries...")
+
     messages = [
-        HumanMessage(content=f"""
-        You are an intelligent SQL query generator and validator. Provided database schema belongs to financial accounting.
-        Given an input question, create a syntactically correct {db.dialect} query to run to help find the answer.
+    HumanMessage(content=f"""
+        # SQL Query Generator for Complex Questions
 
-        IMPORTANT: The current user is '{state['current_user']}' with user id 5 ignore the brackets and store only 
-        the user name to make it suitable to use in further sql queries and the current business ID is 
-        {state['current_business']}.
-        Always scope your query to this specific user and business where applicable by adding appropriate WHERE clauses 
-        that filter for both the current user's data and the current business.
-        
+        ## Your Role and Purpose
+        You are a powerful AI that helps generate SQL queries from complex user questions.
+        Your task is to analyze complex user questions, break them down into atomic sub-questions, and generate SQL queries that collectively answer the original question. You are an essential component of a LangGraph agent designed for database interaction.
 
-        
-        Never query for all the columns from a specific table, only ask for the few relevant columns given the question.
-        
+        ## User Context
+        IMPORTANT: The current user is 'Ajay Pal' with user id 5 and the current business ID is 198.
+        Always scope your query to this specific user and business where applicable by adding appropriate WHERE clauses that filter for both the current user's data and the current business.
+
         Pay attention to use only the column names that you can see in the schema description. Be careful to not query for 
         columns that do not exist. Also, pay attention to which column is in which table.
         
-        **Foreign Key Validation:**
+        ## Available Database Information
+        Schema: {database_schema}
+
+        ## User Question
+        {state['user_query']}
+
+        ## Process Flow
+
+        ### 1. Question Analysis
+        - Carefully read the user's question
+        - Identify all distinct information needs within the question
+        - Determine which database tables and relationships are relevant
+
+        ### 2. Question Decomposition
+        - Break down the complex question into smaller, atomic sub-questions
+        - Ensure each sub-question can be answered with a single SQL query
+        - Preserve the logical relationships between sub-questions
+        - Number each sub-question for clear reference
+        - Only split the question if it truly requires multiple queries to answer completely.
+        - If the question is already atomic, return it as the only sub-question.
+
+        ### 3. SQL Query Generation
+        - For each sub-question, generate a precise SQL query
+        - Ensure queries follow best practices for performance and readability
+        - Include clear comments explaining the purpose of each query component
+        - Validate that the column names and table references match the schema exactly
+
+        ### 4. Result Integration Strategy
+        - Explain how the results from each query should be combined to answer the original question
+        - Specify any client-side processing needed to merge or transform query results
+        - Indicate if any intermediate calculations are required between queries
+
+        ## Database Guidelines
+
+        ### Foreign Key Validation
            - **Check all foreign key constraints** against the schema and ensure correct joins.  
            - If a direct foreign key does not exist, determine the correct table **through inferred relationships**:
            - For financial transactions, **determine account type from parent_account table** (`INCOME`, `EXPENSE`) using:  
@@ -251,93 +280,141 @@ def generate_sql_query(state: State):
              - If filtering by **business name**, use `'legal_name'` instead of business_id.  
            - Fields ending in `_id` (e.g., `party_id`) **should be referenced as `.id`**.  
            - Foreign key fields not ending with _id you have to add _id for that foreign key field.
-           
-        **Query Optimization:**  
-           - Ensure the query follows best practices for performance and accuracy.  
-           - Avoid unnecessary subqueries or redundant joins.  
-           - Use indexed columns where possible to optimize filtering.  
-           
-        **Additional Query Conditions for Financial Data:**
-            1. Start from the `numbers_app_parentaccount` table to filter transactions based on `account_type`.
-            2. Join `numbers_app_account`, `numbers_app_chartofaccount`, and `numbers_app_transaction` to link transactions to their respective accounts.
-            3. Classify transactions as follows:
-               - **Income Calculation:**
-                 - Transactions where `account_type = 'INCOME'`:
-                   - **Positive Value:** `transaction_type = 'CREDIT'`
-                   - **Negative Value:** `transaction_type = 'DEBIT'` (subtract from total income)
-               - **Expense Calculation:**
-                 - Transactions where `account_type = 'EXPENSE'`:
-                   - **Positive Value:** `transaction_type = 'DEBIT'`
-                   - **Negative Value:** `transaction_type = 'CREDIT'` (subtract from total expenses)
-            4. Filter transactions for the previous fiscal year using `date_trunc('year', NOW() - INTERVAL '1 year')`.
-            5. Group results by month (`date_trunc('month', transaction_date)`) and order them in ascending order.
-            6. The query should be optimized for performance and avoid unnecessary joins.
-            7. Query should consider company_name instead of name form numbers_app_party table
-            
-        **Fiscal Year Handling (Country-Specific):**
-            - The fiscal year **varies by country**. The current and previous fiscal years should be determined dynamically from the `numbers_app_fiscalyear` table.
-            - The `numbers_app_fiscalyear` table stores fiscal year data as `month_range` for each `business_id`.
-            - **Determine the fiscal year dynamically** based on today’s date and retrieve the start and end dates from `numbers_app_fiscalyear` for the given business.
-            - **Example for India (April - March Fiscal Year):**
-              - If the query is about the **current fiscal year**, filter data from `2024-04-01` to `2025-03-31`.
-              - If the query is about the **previous fiscal year**, filter data from `2023-04-01` to `2024-03-31`.
-            - Use `numbers_app_journalentry.transaction_date` to filter transactions within the fiscal year.
-            - When the query involves a fiscal year, ensure **all 12 monthly records** are retrieved.
-            - While querying for results related to year remove the Limit 10 to fetch all month records.
-           
-        
-        When both user and business filters are applicable, make sure to include both conditions 
-        (e.g., "WHERE user_id = X AND business_id = Y").
-        
-        - For general queries, limit results to 10 unless the user specifies otherwise.
-        - Do **not** use LIMIT when retrieving full-year data or monthly breakdowns.
 
-        ### Database Schema:
-        The schema is structured as JSON with tables, columns, foreign keys, and **descriptions** that explain the purpose of each table. Use this human-readable description to choose the most appropriate tables and columns.
-        ```json
-        {detailed_schema}
-        
-        User Question: {state['user_query']}
+        ### Query Optimization
+        - Ensure the query follows best practices for performance and accuracy
+        - Avoid unnecessary subqueries or redundant joins
+        - Use indexed columns where possible to optimize filtering
+        - Include both user and business filters when applicable: `WHERE user_id = X AND business_id = Y`
+        - For general queries, limit results to 10 unless the user specifies otherwise
+        - Do NOT use LIMIT when retrieving full-year data or monthly breakdowns
+
+        ### Additional Query Conditions for Financial Data:
+        1. Start from the `numbers_app_parentaccount` table to filter transactions based on `account_type`.
+        2. Join `numbers_app_account`, `numbers_app_chartofaccount`, and `numbers_app_transaction` to link transactions to their respective accounts.
+        3. Classify transactions as follows:
+           - **Income Calculation:**
+             - Transactions where `account_type = 'INCOME'`:
+               - **Positive Value:** `transaction_type = 'CREDIT'`
+               - **Negative Value:** `transaction_type = 'DEBIT'` (subtract from total income)
+           - **Expense Calculation:**
+             - Transactions where `account_type = 'EXPENSE'`:
+               - **Positive Value:** `transaction_type = 'DEBIT'`
+               - **Negative Value:** `transaction_type = 'CREDIT'` (subtract from total expenses)
+        4. Filter transactions for the previous fiscal year using `date_trunc('year', NOW() - INTERVAL '1 year')`.
+        5. Group results by month (`date_trunc('month', transaction_date)`) and order them in ascending order.
+        6. The query should be optimized for performance and avoid unnecessary joins.
+        7. Query should consider company_name instead of name form numbers_app_party table
+
+        ### Fiscal Year Handling (Country-Specific):
+        - The fiscal year **varies by country**. The current and previous fiscal years should be determined dynamically from the `numbers_app_fiscalyear` table.
+        - The `numbers_app_fiscalyear` table stores fiscal year data as `month_range` for each `business_id`.
+        - **Determine the fiscal year dynamically** based on today’s date and retrieve the start and end dates from `numbers_app_fiscalyear` for the given business.
+        - **Example for India (April - March Fiscal Year):**
+          - If the query is about the **current fiscal year**, filter data from `2024-04-01` to `2025-03-31`.
+          - If the query is about the **previous fiscal year**, filter data from `2023-04-01` to `2024-03-31`.
+        - Use `numbers_app_journalentry.transaction_date` to filter transactions within the fiscal year.
+        - When the query involves a fiscal year, ensure **all 12 monthly records** are retrieved.
+        - While querying for results related to year remove the Limit 10 to fetch all month records.
+
+        ## Output Format
+        Return a JSON object with the following structure:
+
+        {{
+          "decomposition": [
+            {{
+              "id": 1,
+              "sub_question": "First atomic sub-question",
+              "sql_query": "SQL query for first sub-question",
+              "explanation": "Brief explanation of what this query retrieves and why"
+            }},
+            {{
+              "id": 2,
+              "sub_question": "Second atomic sub-question",
+              "sql_query": "SQL query for second sub-question",
+              "explanation": "Brief explanation of what this query retrieves and why"
+            }}
+          ],
+          "integration_plan": "Step-by-step explanation of how to combine results to answer the original question"
+        }}
+
+        ## Example
+
+        ### User Question
+        "What are the income and expenses of the previous fiscal year by month for my business?"
+
+        ### Example Output
+        {{
+          "decomposition": [
+            {{
+              "id": 1,
+              "sub_question": "What is the total income by month for my business for the last fiscal year?",
+              "sql_query": "select extract(month from je.transaction_date) as month, SUM(case when t.transaction_type = 'CREDIT' then t.amount else -t.amount end) as total_income from numbers_app_journalentry je join numbers_app_transaction t on je.id = t.journal_entry_id join numbers_app_chartofaccount coa on t.business_account_id = coa.id join numbers_app_account acc on coa.account_id = acc.id join numbers_app_parentaccount pa on acc.parent_account_id = pa.id where pa.account_type = 'INCOME' and je.business_id = 198 and je.created_by_id = 5 and extract(year from je.transaction_date) = extract(year from NOW()) - 1 group by extract(month from je.transaction_date) order by month asc;"
+            }},
+            {{
+              "id": 2,
+              "sub_question": "What is the total expenses by month for my business for the last fiscal year?",
+              "sql_query": "select extract(month from je.transaction_date) as month, SUM(case when t.transaction_type = 'DEBIT' then t.amount else -t.amount end) as total_expenses from numbers_app_journalentry je join numbers_app_transaction t on je.id = t.journal_entry_id join numbers_app_chartofaccount coa on t.business_account_id = coa.id join numbers_app_account acc on coa.account_id = acc.id join numbers_app_parentaccount pa on acc.parent_account_id = pa.id where pa.account_type = 'EXPENSE' and je.business_id = 198 and je.created_by_id = 5 and extract(year from je.transaction_date) = extract(year from NOW()) - 1 group by extract(month from je.transaction_date) order by month asc;"
+            }}
+          ],
+          "integration_plan": "To combine the income and expenses for the previous year, join the results on the 'month' field. You can Union the two queries as follows to get the income and expense for the business"
+        }}
+
+        ## Remember
+        - Each sub-question should be answerable with a single SQL query
+        - Ensure proper handling of JOINs when data spans multiple tables
+        - Consider performance implications for large datasets
+        - Account for potential NULL values and edge cases
+        - Use appropriate aggregation functions when needed
+        - Follow SQL best practices for the specific database system in use
+
+        Your role is to decompose questions and generate SQL queries, not to execute them or produce final answers. Focus on generating correct, efficient queries that another component will execute.
         
         Check and make sure that all guidelines have been followed.
-        
-        """)
+    """)
     ]
 
-    structured_llm = model.with_structured_output(QueryOutput)
+    structured_llm = model.with_structured_output(DecompositionResponse)
     result = structured_llm.invoke(messages)
-    # print("QUERY RESULT=====>",result)
-    state["sql_query"] = result.query
-    print(f"Generated SQL query: {state['sql_query']}")
+    print(f"Decomposition Result: {result.decomposition}")
+    print("Successfully decomposed and generated sub-queries.")
+    state["sql_queries"] =  [r.query for r in result.decomposition]
     return state
 
 
+# Change name to execute_sql_queries 
 # Node 4: Execute SQL Query
 def execute_sql_query(state: State):
-    """Execute the generated SQL query and store results."""
-    sql_query = state["sql_query"].strip()
-    print(f"Executing SQL query: {sql_query}")
-    
-    try:
-        # Execute the query
-        result = db.run(sql_query)
-        # Parse the result to determine if it's empty
-        if not result or result.strip() == "":
-            state["query_rows"] = []
-            state["sql_query_result"] = "No results found."
-        else:
-            state["sql_query_result"] = result
-            state["query_rows"] = [{"result": result}]
-            
-        state["sql_error"] = False
-        print("SQL query executed successfully.")
-        
-    except Exception as e:
-        state["sql_query_result"] = f"Error executing query: {str(e)}"
-        state["sql_error"] = True
-        print(f"Error executing SQL query: {str(e)}")
-    
+    """Execute all generated SQL queries and collect results/errors."""
+    print("Executing multiple SQL queries...")
+    state["sql_query_results"] = []
+    state["query_rows"] = []
+    state["sql_error"] = False  # default to no error
+
+    for query in state.get("sql_queries", []):
+        try:
+            print(f"Running SQL: {query}")
+            result = db.run(query)
+
+            state["sql_query_results"].append({
+                "query": query,
+                "result": result,
+                "error": False,
+                "error_message": ""
+            })
+            state["query_rows"].append({"result": result})
+        except Exception as e:
+            print(f"Error in query: {query}\n{str(e)}")
+            state["sql_query_results"].append({
+                "query": query,
+                "result": "",
+                "error": True,
+                "error_message": str(e)
+            })
+            state["sql_error"] = True  # flip flag if any fail
+
     return state
+
 
 # Node 5: Determine Output Format
 class OutputFormat(BaseModel):
@@ -480,7 +557,7 @@ def format_chart_data(state: State):
           ```
 
         **Query Result:**
-        {state["sql_query_result"]}
+        {state["sql_query_results"]}
         
         **If there are more then 1 parameters example income and expense create multiple objects in the array each representing the data of the different parameters present in the user query.so the length of the array will be equal to the number of parameters.**
         
@@ -520,60 +597,113 @@ def generate_funny_response(state: State):
     return state
 
 # Node 4A: Regenerate Query
-class RewrittenQuestion(BaseModel):
-    """Rewritten version of the original question."""
-    question: str = Field(description="The rewritten question to generate a better SQL query.")
+
+class RegeneratedQuery(BaseModel):
+    original_query: str
+    regenerated_query: str
+
+class RegenerationResponse(BaseModel):
+    regenerated_queries: List[RegeneratedQuery]
 
 def regenerate_query(state: State):
-    """Rewrite the question to generate a better SQL query."""
-    print("Regenerating the SQL query by rewriting the question.")
-    
+    """Regenerate only failed SQL queries using the error message."""
+    print("Regenerating failed queries...")
+
+    failed_queries = [
+        {
+            "query": item["query"],
+            "error_message": item["error_message"]
+        }
+        for item in state.get("sql_query_results", [])
+        if item.get("error", False)
+    ]
+
+    if not failed_queries:
+        print("No failed queries to regenerate.")
+        return state
+
+    print("failed queries: ", failed_queries)
     messages = [
         HumanMessage(content=f"""
-        You are an assistant that reformulates an original question to enable more precise SQL queries.
+        You are an AI assistant that fixes SQL queries.
+        Here are SQL queries that failed, and the error messages received:
+        {failed_queries}
         
-        Original Question: {state['user_query']}
-        Error with previous query: {state['sql_query_result']}
+        Please return corrected versions of the queries as a JSON object.
         
-        Reformulate the question to enable more precise SQL queries, ensuring all necessary details are preserved.
-        Focus on fixing the specific error encountered.
+        ### Example Output 
+        {{
+          "regenerated_queries": [
+            {{
+              "original_query": "SELECT * FORM table",
+              "regenerated_query": "SELECT * FROM table"
+            }},
+            {{
+              "original_query": "SELECT COUNT(*) customers",
+              "regenerated_query": "SELECT COUNT(*) FROM customers"
+            }}
+          ]
+        }}
         """)
     ]
-    
-    structured_llm = model.with_structured_output(RewrittenQuestion)
+
+    structured_llm = model.with_structured_output(RegenerationResponse)
     result = structured_llm.invoke(messages)
-    
-    state["user_query"] = result.question
+
+    regenerated = result.regenerated_queries
+
+    # Map fixes back to state["sql_queries"]
+    for fix in regenerated:
+        for i, q in enumerate(state["sql_queries"]):
+            if q.strip() == fix.original_query.strip():
+                state["sql_queries"][i] = fix.regenerated_query.strip()
+
     state["attempts"] += 1
-    print(f"Rewritten question (attempt {state['attempts']}): {state['user_query']}")
-    
+    print("Regenerated queries:",state["sql_queries"])
+    print(f"Regenerated {len(regenerated)} queries (attempt {state['attempts']})")
     return state
 
 # Node 6: Generate Readable Response
+
 def generate_readable_resp(state: State):
-    """Generate a human-readable response based on the SQL query results."""
-    print("Generating a human-readable answer.")
-    
+    """Generate a human-readable response based on SQL query results."""
+    print("Generating a human-readable answer...")
+
+    current_user = state["current_user"]
+
+    # Extract query + result pairs (no need to filter for errors)
+    results = [
+        {
+            "query": r["query"],
+            "result": r["result"]
+        }
+        for r in state.get("sql_query_results", [])
+    ]
+
     messages = [
         HumanMessage(content=f"""
-        You are a helpful assistant that converts SQL query results into clear, natural language responses.
-        Start the response with a friendly greeting that includes the user's name.
-        
-        Current user: {state["current_user"]}
-        User query: {state["user_query"]}
-        SQL query used: {state["sql_query"]}
-        Query result: {state["sql_query_result"]}
-        
-        Please generate a clear, concise response that answers the user's original question based on the SQL query results.
-        Start with "Hello {state["current_user"]}," and then provide the requested information in a friendly manner.ignore the brackets and show only the user name.
-        **do not provide sensitive info like business id or user id in the response**.
+        You are a helpful assistant that summarizes database query results in friendly language.
+
+        User: {current_user}
+        Original question: {state["user_query"]}
+
+        The following SQL queries were executed, and here are their results:
+        {results}
+
+        Please respond with:
+        - A clear, friendly summary that answers the user’s question.
+        - Start the reply with: "Hello {current_user},". ignore the brackets and show only the user name.
+        - Do not mention SQL code or technical terms.
+        - Do not include business ID, user ID, or raw data unless clearly useful.
+        - Be concise and natural, like a helpful assistant.
+
+        Respond only with the summary.
         """)
     ]
-    
+
     response = model.invoke(messages)
     state["readable_resp"] = response.content
     print("Generated human-readable answer.")
-    
     return state
 
 # Node 4B: Max Attempts Reached
@@ -587,7 +717,7 @@ def end_max_iterations(state: State):
         
         Question: {state["user_query"]}
         
-        Latest error: {state["sql_query_result"]}
+        Latest error: {state["sql_query_results"]}
         
         Please generate a polite message explaining that we couldn't process their request after multiple attempts.
         Suggest that they try rephrasing their question to be more specific about the database tables they want to query.
@@ -632,7 +762,7 @@ def output_format_router(state: State):
 def check_attempts_router(state: State):
     """Route based on number of attempts."""
     if state["attempts"] < 3:
-        return "generate_sql_query"
+        return "execute_sql_query"
     else:
         return "end_max_iterations"
 
@@ -706,7 +836,7 @@ workflow.add_conditional_edges(
     "regenerate_query",
     check_attempts_router,
     {
-        "generate_sql_query": "generate_sql_query",
+        "execute_sql_query": "execute_sql_query", # TODO: call execute_sql_queries node.
         "end_max_iterations": "end_max_iterations",
     },
 )
@@ -739,14 +869,16 @@ def run_query(user_query):
     
     return final_state
 
-sample_query = "how my sales in distributed across different customers?"
+# sample_query = "how my sales in distributed across different customers?"
 # sample_query = "how is my sales performance in this quarter compared to the previous quarter?"
 # sample_query = "What are the income and expenses of the previous fiscal year by month for my business?"
-# sample_query = "what is total income in the previous month for business with id 198?"
+sample_query = "what is total income and expenses in the last quarter for my business?"
 # sample_query = "which tables have foreign key relations with the table numbers_app_invoiceitems?"
 # sample_query = "what are the invoices created in January?"
-sample_query = "what are the top customers product wise?"
+# sample_query = "what are the top customers product wise?"
+sample_query = "What are the sales trends for my business over the past year, and how do they correlate with seasonal fluctuations in demand?"
+# sample_query = "What are the profits for my business for the current fiscal year, broken down by month?"
 
-run_query(sample_query)
+# run_query(sample_query)
 
 
