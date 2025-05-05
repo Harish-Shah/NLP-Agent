@@ -51,49 +51,6 @@ class State(TypedDict):
     current_business: int
     requested_business_type: str
 
-def get_database_schema(db):
-    """
-    Returns a detailed database schema representation.
-    
-    Args:
-        db: SQLDatabase instance
-    
-    Returns:
-        str: A string representation of the database schema
-    """
-
-    inspector = inspect(db._engine)
-    
-    schema = ""
-    for table_name in inspector.get_table_names():
-        schema += f"Table: {table_name}\n"
-        
-        # Get columns
-        for column in inspector.get_columns(table_name):
-            col_name = column["name"]
-            col_type = str(column["type"])
-            
-            # Check if it's a primary key
-            pk_constraint = inspector.get_pk_constraint(table_name)
-            if pk_constraint and col_name in pk_constraint.get('constrained_columns', []):
-                col_type += ", Primary Key"
-            
-            # Check for foreign keys
-            fk_constraints = inspector.get_foreign_keys(table_name)
-            for fk in fk_constraints:
-                if col_name in fk.get('constrained_columns', []):
-                    referred_table = fk.get('referred_table')
-                    referred_columns = fk.get('referred_columns')
-                    if referred_table and referred_columns:
-                        col_type += f", Foreign Key to {referred_table}.{referred_columns[0]}"
-            
-            schema += f"- {col_name}: {col_type}\n"
-        
-        schema += "\n"
-    
-    print("Retrieved detailed database schema.")
-    return schema
-
 # Node 1: Get Current User
 class GetCurrentUser(BaseModel):
     current_user: str = Field(
@@ -121,7 +78,7 @@ def get_current_user(state:State, config: RunnableConfig):
             state["current_user"] = "User not found"
             print("User not found in the database.")
     except Exception as e:
-        state["current_user"] = "Error retrieving user"
+        state["current_user"] = "user"
         print(f"Error retrieving user: {str(e)}")
     
     return state
@@ -136,7 +93,6 @@ class RelevanceOutput(BaseModel):
 def check_relevance(state: State):
     """Check if the user query is relevant to the database schema and ensures it is a read-only query."""
     print(f"Checking relevance of the question: {state['user_query']}")
-    # detailed_schema = get_database_schema(db)
     detailed_schema = database_schema
 
     messages = [
@@ -215,8 +171,7 @@ class DecompositionResponse(BaseModel):
     decomposition: List[SubQuery]
     integration_plan: str
 
-# change name to decompose_and_generate_sql_queries
-def generate_sql_query(state: State):
+def decompose_and_generate_sql_queries(state: State):
     """Break down a complex question into sub-questions and generate individual SQL queries for each."""
     print("Decomposing complex question and generating sub-queries...")
 
@@ -323,13 +278,11 @@ def generate_sql_query(state: State):
         {{
           "decomposition": [
             {{
-              "id": 1,
               "sub_question": "First atomic sub-question",
               "sql_query": "SQL query for first sub-question",
               "explanation": "Brief explanation of what this query retrieves and why"
             }},
             {{
-              "id": 2,
               "sub_question": "Second atomic sub-question",
               "sql_query": "SQL query for second sub-question",
               "explanation": "Brief explanation of what this query retrieves and why"
@@ -382,9 +335,8 @@ def generate_sql_query(state: State):
     return state
 
 
-# Change name to execute_sql_queries 
 # Node 4: Execute SQL Query
-def execute_sql_query(state: State):
+def execute_sql_query_list(state: State):
     """Execute all generated SQL queries and collect results/errors."""
     print("Executing multiple SQL queries...")
     state["sql_query_results"] = []
@@ -576,25 +528,35 @@ def format_chart_data(state: State):
     return state
 
 # Node 2A: Generate Funny Response (for irrelevant questions)
-def generate_funny_response(state: State):
-    """Generate a playful response for irrelevant questions."""
-    print("Generating a funny response for an unrelated question.")
+def generate_irrelevant_query_response(state: State):
+    """Generate a clear and helpful response for irrelevant questions."""
+    print("Generating helpful response for an unrelated question.")
     
     messages = [
-        HumanMessage(content="""
-        You are a charming and funny assistant who responds in a playful manner.
+        HumanMessage(content=f"""
+        You are an intelligent and helpful assistant embedded in a natural language to SQL agent.
+
+        The user has asked a question that cannot be answered using the current database schema.
+        Your job is to politely inform the user that their question appears unrelated to the business data available.
+
+        Explain clearly:
+        - That this assistant is designed to answer questions specifically about the business data available in the database.
+        - That the current question doesn't match any recognizable data structures or entities in the schema.
+        - Encourage them to rephrase their question or ask something related to financial transactions, income, expenses, invoices, or any supported business metrics.
         
-        I can't help with that database query, as it doesn't seem related to our database schema.
-        Please provide a friendly, humorous response encouraging the user to ask database-related questions instead.
-        Make it brief and charming.
+        Keep the tone professional, empathetic, and gently instructional.
+
+        User question:
+        "{state['user_query']}"
         """)
     ]
     
     response = model.invoke(messages)
     state["readable_resp"] = response.content
-    print("Generated funny response.")
+    print("Generated informative fallback response.")
     
     return state
+
 
 # Node 4A: Regenerate Query
 
@@ -625,11 +587,23 @@ def regenerate_query(state: State):
     print("failed queries: ", failed_queries)
     messages = [
         HumanMessage(content=f"""
-        You are an AI assistant that fixes SQL queries.
-        Here are SQL queries that failed, and the error messages received:
+        You are an expert SQL query fixer. You need to repair queries that have failed execution.
+        
+        Original user question: {state["user_query"]}
+        
+        Relevant database schema: 
+        {database_schema}
+        
+        Failed queries and their error messages:
         {failed_queries}
         
-        Please return corrected versions of the queries as a JSON object.
+        Based on the error messages and schema:
+        1. Identify the root cause of each error
+        2. Fix the query while preserving the original intent
+        3. Make sure to maintain the correct formatting and syntax
+        4. Verify all table and column names match exactly with the schema
+        
+        Return corrected versions of the queries as a JSON object.
         
         ### Example Output 
         {{
@@ -680,6 +654,7 @@ def generate_readable_resp(state: State):
         for r in state.get("sql_query_results", [])
     ]
 
+    print("Results to summarize:", results)
     messages = [
         HumanMessage(content=f"""
         You are a helpful assistant that summarizes database query results in friendly language.
@@ -734,14 +709,13 @@ def relevance_router(state: State):
     """Route based on query relevance."""
     if state["relevance"].lower() == "relevant":
         return "validate_query_scope"
-        # return "generate_sql_query"
     else:
-        return "generate_funny_response"
+        return "generate_irrelevant_query_response"
 
 
-def check_business_router(state) -> Literal["generate_sql_query", "unauthorized_data_access_message"]:
+def check_business_router(state) -> Literal["decompose_and_generate_sql_queries", "unauthorized_data_access_message"]:
     if state["requested_business_type"] == "same business":
-        return "generate_sql_query"
+        return "decompose_and_generate_sql_queries"
     else:
         return "unauthorized_data_access_message"
 
@@ -762,7 +736,7 @@ def output_format_router(state: State):
 def check_attempts_router(state: State):
     """Route based on number of attempts."""
     if state["attempts"] < 3:
-        return "execute_sql_query"
+        return "execute_sql_query_list"
     else:
         return "end_max_iterations"
 
@@ -773,15 +747,15 @@ workflow = StateGraph(State)
 workflow.add_node("get_current_user", get_current_user)
 workflow.add_node("check_relevance", check_relevance)
 workflow.add_node("validate_query_scope", validate_query_scope)
-workflow.add_node("generate_sql_query", generate_sql_query)
-workflow.add_node("execute_sql_query", execute_sql_query)
+workflow.add_node("decompose_and_generate_sql_queries", decompose_and_generate_sql_queries)
+workflow.add_node("execute_sql_query_list", execute_sql_query_list)
 workflow.add_node("determine_output_format", determine_output_format)
 workflow.add_node("determine_chart_type", determine_chart_type)
 workflow.add_node("format_chart_data", format_chart_data)
 workflow.add_node("generate_readable_resp", generate_readable_resp)
 workflow.add_node("unauthorized_data_access_message", unauthorized_data_access_message)
 workflow.add_node("regenerate_query", regenerate_query)
-workflow.add_node("generate_funny_response", generate_funny_response)
+workflow.add_node("generate_irrelevant_query_response", generate_irrelevant_query_response)
 workflow.add_node("end_max_iterations", end_max_iterations)
 
 # Add edges
@@ -794,7 +768,7 @@ workflow.add_conditional_edges(
     relevance_router,
     {
         "validate_query_scope": "validate_query_scope",
-        "generate_funny_response": "generate_funny_response",
+        "generate_irrelevant_query_response": "generate_irrelevant_query_response",
     },
 )
 
@@ -802,16 +776,16 @@ workflow.add_conditional_edges(
     "validate_query_scope", 
     check_business_router,
     {
-        "generate_sql_query": "generate_sql_query",
+        "decompose_and_generate_sql_queries": "decompose_and_generate_sql_queries",
         "unauthorized_data_access_message": "unauthorized_data_access_message",
     }
 )
 
-workflow.add_edge("generate_sql_query", "execute_sql_query")
+workflow.add_edge("decompose_and_generate_sql_queries", "execute_sql_query_list")
 
 # Conditional routing after SQL execution
 workflow.add_conditional_edges(
-    "execute_sql_query",
+    "execute_sql_query_list",
     execute_sql_router,
     {
         "determine_output_format": "determine_output_format",
@@ -836,14 +810,14 @@ workflow.add_conditional_edges(
     "regenerate_query",
     check_attempts_router,
     {
-        "execute_sql_query": "execute_sql_query", # TODO: call execute_sql_queries node.
+        "execute_sql_query_list": "execute_sql_query_list",
         "end_max_iterations": "end_max_iterations",
     },
 )
 
 # Final edges to END
 workflow.add_edge("generate_readable_resp", END)
-workflow.add_edge("generate_funny_response", END)
+workflow.add_edge("generate_irrelevant_query_response", END)
 workflow.add_edge("end_max_iterations", END)
 workflow.add_edge("format_chart_data", END)
 workflow.add_edge("unauthorized_data_access_message", END)
@@ -861,24 +835,25 @@ def run_query(user_query):
     print(f"\nQuery Relevance: {final_state.get('relevance', 'Not checked')}")
     print(f"\nNumber of Attempts: {final_state.get('attempts', 0)}")
     
-    if 'sql_query' in final_state:
-        print(f"\nGenerated SQL: {final_state['sql_query']}")
-        print(f"\nSQL Result: {final_state['sql_query_result']}")
+    if 'sql_queries' in final_state:
+        print(f"\nGenerated SQL: {final_state['sql_queries']}")
+        # print(f"\nSQL Result: {final_state['sql_query_results']}")
     
     print(f"\nFinal Response: {final_state['readable_resp']}")
     
     return final_state
 
-# sample_query = "how my sales in distributed across different customers?"
+sample_query = "how my sales in distributed across different customers?"
 # sample_query = "how is my sales performance in this quarter compared to the previous quarter?"
 # sample_query = "What are the income and expenses of the previous fiscal year by month for my business?"
-sample_query = "what is total income and expenses in the last quarter for my business?"
+# sample_query = "what is total income and expenses in the last quarter for my business?"
 # sample_query = "which tables have foreign key relations with the table numbers_app_invoiceitems?"
-# sample_query = "what are the invoices created in January?"
+# sample_query = "how many invoices were created in January?"
 # sample_query = "what are the top customers product wise?"
 sample_query = "What are the sales trends for my business over the past year, and how do they correlate with seasonal fluctuations in demand?"
 # sample_query = "What are the profits for my business for the current fiscal year, broken down by month?"
+# sample_query = "how is my sales going in this quarter?"
 
-# run_query(sample_query)
+run_query(sample_query)
 
 
